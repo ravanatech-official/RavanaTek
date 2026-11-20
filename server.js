@@ -20,47 +20,9 @@ app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 // Global Industrial Standards: Security Headers & Performance Middleware
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('X-XSS-Protection', '0');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
   res.setHeader('Timing-Allow-Origin', '*');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-  res.setHeader(
-    'Content-Security-Policy',
-    "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; " +
-    "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; " +
-    "img-src 'self' data: https: blob:; " +
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://cdn.jsdelivr.net https://apis.google.com https://www.googletagmanager.com; " +
-    "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.run.app https://api.github.com;"
-  );
-  next();
-});
-
-// SILICON VALLEY SHIELD: Block direct access to database, sensitive configs, and source maps
-app.use((req, res, next) => {
-  const normalized = req.path.toLowerCase();
-  const isBlocked = 
-    normalized.startsWith('/data') ||
-    normalized.startsWith('/.git') ||
-    normalized.startsWith('/.github') ||
-    normalized.startsWith('/node_modules') ||
-    normalized.includes('leads-db') ||
-    normalized.includes('package.json') ||
-    normalized.includes('package-lock.json') ||
-    normalized.includes('tsconfig.json') ||
-    normalized.includes('vite.config') ||
-    normalized.includes('firestore.rules') ||
-    normalized.includes('firebase-applet-config') ||
-    normalized.includes('.env') ||
-    normalized.endsWith('.ts') ||
-    normalized.endsWith('.tsx') ||
-    normalized.endsWith('.map');
-
-  if (isBlocked) {
-    return res.status(403).json({ error: 'Access forbidden: Protected asset.' });
-  }
   next();
 });
 
@@ -96,6 +58,7 @@ app.use('/assets/img', express.static(__dirname, staticCacheOptions));
 
 // Serve files from assets/img and root static assets
 app.use(express.static(path.join(__dirname, 'assets/img'), staticCacheOptions));
+app.use(express.static(__dirname, staticCacheOptions));
 
 // Serve conceptual projects directory directly under multiple common route paths
 const conceptualProjectsDir = path.join(__dirname, 'conceptual projects');
@@ -147,68 +110,6 @@ app.get('/api/health', (req, res) => {
       readyBlueprints: projectCount
     }
   });
-});
-
-// Dynamic GitHub CI/CD Status Cache & Endpoint
-let githubStatusCache = null;
-let githubStatusCacheTime = 0;
-
-app.get('/api/github/status', async (req, res) => {
-  const now = Date.now();
-  // Return cached status if younger than 60 seconds
-  if (githubStatusCache && now - githubStatusCacheTime < 60000) {
-    return res.json(githubStatusCache);
-  }
-
-  try {
-    const fetchRes = await fetch(
-      'https://api.github.com/repos/ravanatech-official/RavanaTech/actions/runs?per_page=1',
-      {
-        headers: {
-          'User-Agent': 'RavanaTech-Web-Platform',
-          Accept: 'application/vnd.github.v3+json'
-        }
-      }
-    );
-
-    if (fetchRes.ok) {
-      const data = await fetchRes.json();
-      const latestRun = data.workflow_runs && data.workflow_runs[0];
-      if (latestRun) {
-        githubStatusCache = {
-          success: true,
-          status: latestRun.status, // "completed", "in_progress", "queued"
-          conclusion: latestRun.conclusion, // "success", "failure", "neutral", null
-          name: latestRun.name,
-          runNumber: latestRun.run_number,
-          htmlUrl: latestRun.html_url,
-          repoUrl: 'https://github.com/ravanatech-official/RavanaTech',
-          updatedAt: latestRun.updated_at,
-          commitSha: latestRun.head_sha ? latestRun.head_sha.substring(0, 7) : 'main',
-          commitMessage: latestRun.head_commit ? latestRun.head_commit.message.split('\n')[0] : 'Latest build'
-        };
-        githubStatusCacheTime = now;
-        return res.json(githubStatusCache);
-      }
-    }
-  } catch (err) {
-    // Silently fall through to fallback
-  }
-
-  // Fallback default state
-  const fallback = {
-    success: true,
-    status: 'completed',
-    conclusion: 'success',
-    name: 'Deploy to Firebase Hosting',
-    runNumber: 1,
-    htmlUrl: 'https://github.com/ravanatech-official/RavanaTech/actions',
-    repoUrl: 'https://github.com/ravanatech-official/RavanaTech',
-    updatedAt: new Date().toISOString(),
-    commitSha: 'main',
-    commitMessage: 'Active production pipeline'
-  };
-  return res.json(fallback);
 });
 
 // ==================== PERSISTENT DATABASE ENGINE (JSON DB LAYER) ====================
@@ -266,24 +167,9 @@ function saveDbRecord(collection, record) {
   }
 }
 
-// Rate limiter for inquiries (Anti-Spam / Anti-DDoS)
-const inquiryRateLimits = new Map();
-
 // REST Inquiry Endpoint (Lead Intake & Validation & Database Persistence)
 app.post('/api/inquiry', (req, res) => {
   try {
-    const clientIp = req.ip || req.connection?.remoteAddress || 'unknown';
-    const now = Date.now();
-    const lastAttempt = inquiryRateLimits.get(clientIp);
-
-    // Limit to max 1 submission every 5 seconds per IP
-    if (lastAttempt && now - lastAttempt < 5000) {
-      return res.status(429).json({
-        success: false,
-        error: 'Too many requests. Please wait a few seconds before submitting again.'
-      });
-    }
-
     const { name, email, service, message, source } = req.body || {};
     if (!name || !email || !message) {
       return res.status(400).json({
@@ -292,31 +178,15 @@ app.post('/api/inquiry', (req, res) => {
       });
     }
 
-    // Input sanitization and length thresholds
-    const cleanName = String(name).trim().slice(0, 100);
-    const cleanEmail = String(email).trim().slice(0, 150);
-    const cleanMessage = String(message).trim().slice(0, 3000);
-    const cleanService = String(service || 'General Inquiry').trim().slice(0, 100);
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(cleanEmail)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Please provide a valid email address.'
-      });
-    }
-
-    inquiryRateLimits.set(clientIp, now);
-
     const leadRecord = {
       id: `LEAD-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
-      name: cleanName,
-      email: cleanEmail,
-      service: cleanService,
-      message: cleanMessage,
-      source: String(source || 'website_contact_form').trim().slice(0, 50),
-      ip: clientIp,
-      userAgent: String(req.get('user-agent') || 'browser').slice(0, 200),
+      name: String(name).trim(),
+      email: String(email).trim(),
+      service: String(service || 'General Inquiry').trim(),
+      message: String(message).trim(),
+      source: source || 'website_contact_form',
+      ip: req.ip || req.connection.remoteAddress || 'local',
+      userAgent: req.get('user-agent') || 'browser',
       receivedAt: new Date().toISOString()
     };
 
@@ -466,41 +336,6 @@ function getIndexHtml() {
   }
   return cachedIndexHtml;
 }
-
-// RFC 9116 Standard Security Vulnerability Disclosure Endpoints
-app.get(['/.well-known/security.txt', '/security.txt'], (req, res) => {
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, max-age=86400');
-  const secPath = fs.existsSync(path.join(__dirname, '.well-known', 'security.txt'))
-    ? path.join(__dirname, '.well-known', 'security.txt')
-    : path.join(__dirname, 'security.txt');
-  res.sendFile(secPath);
-});
-
-// Dedicated Enterprise Trust & Compliance Document Routes
-app.get(['/security', '/security.html'], (req, res) => {
-  res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-  res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
-  res.sendFile(path.join(__dirname, 'security.html'));
-});
-
-app.get(['/privacy', '/privacy.html'], (req, res) => {
-  res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-  res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
-  res.sendFile(path.join(__dirname, 'privacy.html'));
-});
-
-app.get(['/terms', '/terms.html'], (req, res) => {
-  res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-  res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
-  res.sendFile(path.join(__dirname, 'terms.html'));
-});
-
-app.get(['/data-policy', '/data-policy.html'], (req, res) => {
-  res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-  res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
-  res.sendFile(path.join(__dirname, 'data-policy.html'));
-});
 
 // Clean URLs for Deck Screens
 app.get(['/', '/home', '/about', '/systems', '/projects', '/contact', '/ai-lab', '/automation', '/lab', '/experience'], (req, res) => {
