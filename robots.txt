@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://ravanatec.web.app/sitemap.xml
+Sitemap: https://ravanatek.web.app/sitemap.xml

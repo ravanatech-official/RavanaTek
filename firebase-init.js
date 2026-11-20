@@ -1,27 +1,48 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
 import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 export const firebaseConfig = {
-  apiKey: "AIzaSyDOIt7fmrcHiL8VJbqXqaw-bBmzVuLxxvo",
-  authDomain: "ravanatec.firebaseapp.com",
-  projectId: "ravanatec",
-  storageBucket: "ravanatec.firebasestorage.app",
-  messagingSenderId: "43608207475",
-  appId: "1:43608207475:web:4be9d1bc1698e8ae1e3a06",
-  measurementId: "G-47HKDPCRH5"
+  apiKey: "AIzaSyC7WWfls56qBV_9jmaAx6BtLh_BkL6GI1U",
+  authDomain: "ravanatek.firebaseapp.com",
+  projectId: "ravanatek",
+  storageBucket: "ravanatek.firebasestorage.app",
+  messagingSenderId: "939944415589",
+  appId: "1:939944415589:web:fb51e72dacecb6fe36918c",
+  measurementId: "G-9PK7NSWBJ9"
 };
+
+const PRODUCTION_FIREBASE_HOSTS = new Set(["ravanatek.web.app", "ravanatek.firebaseapp.com"]);
+
+if (typeof window !== "undefined") {
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason;
+    const code = reason && reason.code ? String(reason.code) : "";
+    const msg = reason && reason.message ? String(reason.message) : String(reason || "");
+    if (code.startsWith("installations/") || msg.includes("installations/request-failed")) {
+      event.preventDefault();
+      console.warn("[Firebase Analytics] Installations skipped (API key restricted or unavailable for this origin):", msg);
+    }
+  });
+}
 
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig);
 export let analytics = null;
-try {
-  analytics = getAnalytics(app);
-} catch (err) {
-  console.info("[Firebase Analytics] Analytics initialized or deferred:", err);
+if (typeof window !== "undefined" && PRODUCTION_FIREBASE_HOSTS.has(window.location.hostname)) {
+  isAnalyticsSupported()
+    .then((supported) => {
+      if (supported) {
+        analytics = getAnalytics(app);
+        window.firebaseAnalytics = analytics;
+      }
+    })
+    .catch((err) => {
+      console.info("[Firebase Analytics] Analytics initialized or deferred:", err);
+    });
 }
 
 export let db = null;
@@ -58,5 +79,5 @@ if (typeof window !== "undefined") {
   window.firebaseAnalytics = analytics;
   window.firebaseDb = db;
   window.saveInquiryToFirestore = saveInquiry;
-  console.log("[RAVANA TECH] Firebase & Firestore initialized successfully // Project: ravanatec");
+  console.log("[RAVANA TECH] Firebase & Firestore initialized successfully // Project: ravanatek");
 }

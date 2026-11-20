@@ -4,19 +4,19 @@
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
     <url>
-        <loc>https://ravanatec.web.app/</loc>
+        <loc>https://ravanatek.web.app/</loc>
         <lastmod>2026-10-11T00:00:00+00:00</lastmod>
         <changefreq>daily</changefreq>
         <priority>1.00</priority>
     </url>
     <url>
-        <loc>https://ravanatec.web.app/projects</loc>
+        <loc>https://ravanatek.web.app/projects</loc>
         <lastmod>2026-10-11T00:00:00+00:00</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.90</priority>
     </url>
     <url>
-        <loc>https://ravanatec.web.app/services.html</loc>
+        <loc>https://ravanatek.web.app/services.html</loc>
         <lastmod>2026-10-11T00:00:00+00:00</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.85</priority>

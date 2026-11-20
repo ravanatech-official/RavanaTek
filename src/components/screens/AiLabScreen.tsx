@@ -793,7 +793,7 @@ export const AiLabScreen: React.FC<AiLabScreenProps> = ({
                   <div className="cv-contact-row">
                     <span><i className="bx bx-envelope" /> {userProfile.email}</span>
                     <span><i className="bx bxl-whatsapp" /> {userProfile.phone}</span>
-                    <span><i className="bx bx-globe" /> <a href={userProfile.portfolioUrl} target="_blank" rel="noreferrer">ravanatec.web.app/ai-lab</a></span>
+                    <span><i className="bx bx-globe" /> <a href={userProfile.portfolioUrl} target="_blank" rel="noreferrer">ravanatek.web.app/ai-lab</a></span>
                     <span><i className="bx bx-map" /> {userProfile.location}</span>
                   </div>
 

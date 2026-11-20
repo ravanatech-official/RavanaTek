@@ -1294,7 +1294,7 @@ if (contactForm && formFeedback) {
         phone: '+94 78 847 0610',
         email: 'hello.ravanatech@gmail.com',
         location: 'Open to UAE / Gulf Relocation & Global Remote',
-        portfolioUrl: 'https://ravanatec.web.app/ai-lab',
+        portfolioUrl: 'https://ravanatek.web.app/ai-lab',
         profile: 'Meticulous and tech-empowered Document Controller & Data Management Specialist with a distinctive competitive edge in AI Workflow Automation and Electronic Document Management Systems (EDMS). Combines strict ISO 9001:2015 document control governance with modern cognitive AI tooling (Google AI Studio, Gemini, Google App Scripts, Cloud Databases) to eliminate manual logging bottlenecks, achieving 100% revision accuracy and accelerating transmittal turnaround by over 80%.',
         experience: [
             {
@@ -1390,7 +1390,7 @@ ${p.education.map(e => `- ${e}`).join('\n')}`;
                 <div class="cv-contact-row">
                     <span><i class='bx bx-envelope'></i> ${p.email}</span>
                     <span><i class='bx bxl-whatsapp'></i> ${p.phone}</span>
-                    <span><i class='bx bx-globe'></i> <a href="${p.portfolioUrl}" target="_blank">ravanatec.web.app/ai-lab</a></span>
+                    <span><i class='bx bx-globe'></i> <a href="${p.portfolioUrl}" target="_blank">ravanatek.web.app/ai-lab</a></span>
                     <span><i class='bx bx-map'></i> ${p.location}</span>
                 </div>
 
@@ -1462,7 +1462,7 @@ ${p.education.map(e => `- ${e}`).join('\n')}`;
                 <div class="cv-contact-row">
                     <span><i class='bx bx-envelope'></i> ${p.email}</span>
                     <span><i class='bx bxl-whatsapp'></i> ${p.phone}</span>
-                    <span><i class='bx bx-globe'></i> <a href="${p.portfolioUrl}" target="_blank">ravanatec.web.app/ai-lab</a></span>
+                    <span><i class='bx bx-globe'></i> <a href="${p.portfolioUrl}" target="_blank">ravanatek.web.app/ai-lab</a></span>
                     <span><i class='bx bx-map'></i> ${p.location}</span>
                 </div>
 
@@ -1549,7 +1549,7 @@ Email: ${p.email} | WhatsApp: ${p.phone}`;
                         <li><strong>Purge manual typos and duplicate entries</strong> through automated regex and schema validation.</li>
                     </ul>
                     <p style="color:#D0E8F5; line-height:1.7; margin-bottom:1rem;">
-                        You can interactively test my real-time Document Controller Simulator and automated batch pipelines live at: <a href="${p.portfolioUrl}" target="_blank" style="color:var(--rt-cyan-bright); font-weight:700;">ravanatec.web.app/ai-lab</a>.
+                        You can interactively test my real-time Document Controller Simulator and automated batch pipelines live at: <a href="${p.portfolioUrl}" target="_blank" style="color:var(--rt-cyan-bright); font-weight:700;">ravanatek.web.app/ai-lab</a>.
                     </p>
                     <p style="color:#D0E8F5; line-height:1.7;">
                         I am available for immediate appointment and am fully prepared for <strong>UAE / Dubai relocation or high-performance remote engagement</strong>. Thank you for your time and consideration.

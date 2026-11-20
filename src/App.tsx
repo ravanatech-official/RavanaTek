@@ -29,7 +29,7 @@ const DEFAULT_PROFILE: UserCvProfile = {
   phone: '+94 78 847 0610',
   email: 'hello.ravanatech@gmail.com',
   location: 'Open to UAE / Gulf Relocation & Global Remote',
-  portfolioUrl: 'https://ravanatec.web.app/ai-lab',
+  portfolioUrl: 'https://ravanatek.web.app/ai-lab',
   profile:
     'Meticulous and tech-empowered Document Controller & Data Management Specialist with a distinctive competitive edge in AI Workflow Automation and Electronic Document Management Systems (EDMS). Combines strict ISO 9001:2015 document control governance with modern cognitive AI tooling (Google AI Studio, Gemini, Google App Scripts, Cloud Databases) to eliminate manual logging bottlenecks, achieving 100% revision accuracy and accelerating transmittal turnaround by over 80%.',
   experience: [
