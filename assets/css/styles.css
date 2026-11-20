@@ -3789,6 +3789,13 @@ section#contact .section-title::after {
   align-items: center;
 }
 
+.services-more-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 0.25rem;
+}
+
 .services-full-page-btn {
   display: inline-flex;
   align-items: center;

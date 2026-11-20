@@ -14,57 +14,30 @@ export const ServicesScreen: React.FC<ServicesScreenProps> = ({
   const services = [
     {
       id: 'websites',
-      title: 'Bespoke High-Speed Websites',
-      icon: 'bx-layout',
-      badge: 'CORE SYSTEM',
-      tag: 'SUB-SECOND SPEED',
-      description: 'Ultra-fast marketing platforms and brand websites designed from scratch. Zero templates, bespoke layouts, and mathematical typography that outshine competitors.',
-      specs: ['Sub-200ms TTFB', 'Responsive HUD', '100/100 Lighthouse'],
+      title: 'Business Websites',
+      icon: 'bx-globe',
+      badge: 'TOP REQUEST',
+      tag: 'HIGH SPEED',
+      description: 'Clean, modern, high-speed websites for companies, shops, and professionals. Designed to build trust and turn visitors into paying clients.',
+      specs: ['Fast Loading', 'Mobile Ready', 'Google Friendly'],
     },
     {
       id: 'ecommerce',
-      title: 'High-Converting Online Stores',
+      title: 'Online Stores (E-Commerce)',
       icon: 'bx-shopping-bag',
-      badge: 'COMMERCE ENGINE',
-      tag: 'STREAMLINED CHECKOUT',
-      description: 'Custom e-commerce architectures engineered for seamless checkout conversions, integrated payment gateways, and real-time inventory management.',
-      specs: ['Stripe / PayPal', 'Instant Cart', 'Mobile First'],
+      badge: 'HIGH DEMAND',
+      tag: '24/7 SALES',
+      description: 'Sell your products online 24/7. Simple product catalog, 1-click WhatsApp instant ordering, card payments, and fast mobile checkout.',
+      specs: ['1-Click WhatsApp', 'Card Payments', 'Easy Management'],
     },
     {
-      id: 'portals',
-      title: 'Custom Web Apps & Portals',
-      icon: 'bx-code-block',
-      badge: 'ENTERPRISE',
-      tag: 'FULL-STACK LOGIC',
-      description: 'Internal dashboards, client management portals, and automated business platforms that replace tedious spreadsheets and streamline day-to-day operations.',
-      specs: ['React & Node.js', 'Role-Based Access', 'REST / GraphQL'],
-    },
-    {
-      id: 'cloud',
-      title: 'Cloud Architecture & Edge Hosting',
-      icon: 'bx-cloud-lightning',
-      badge: 'INFRASTRUCTURE',
-      tag: 'GLOBAL CDN',
-      description: 'Resilient cloud deployment on Google Cloud and Firebase. Worldwide edge caching, automated SSL encryption, and continuous automated backup systems.',
-      specs: ['99.99% Uptime', 'Global Edge CDN', 'Automated Failover'],
-    },
-    {
-      id: 'seo',
-      title: 'SEO & Speed Optimization',
-      icon: 'bx-line-chart',
-      badge: 'ORGANIC GROWTH',
-      tag: 'SCHEMA.ORG JSON-LD',
-      description: 'Industrial-grade search engine optimization with rich structured data, social graph cards, semantic hierarchy, and top-ranking Core Web Vitals.',
-      specs: ['Schema.org JSON-LD', 'Rich Snippets', 'Social Cards'],
-    },
-    {
-      id: 'support',
-      title: 'Maintenance & 24/7 Priority Support',
-      icon: 'bx-shield-quarter',
-      badge: 'GUARANTEED SLA',
-      tag: 'ZERO DOWNTIME',
-      description: 'Dedicated engineering support directly with the lead developer. Proactive security patching, analytics reporting, and rapid emergency intervention.',
-      specs: ['Direct WhatsApp SLA', 'Proactive Patching', 'Traffic Analytics'],
+      id: 'landing-pages',
+      title: 'Fast Landing Pages',
+      icon: 'bx-rocket',
+      badge: 'HIGH CONVERSION',
+      tag: 'AD CAMPAIGNS',
+      description: 'Instant-loading single-page websites built for Facebook, TikTok & Google ad campaigns. Drives quick calls, messages, and quality leads.',
+      specs: ['Instant Load', 'Lead Focused', 'Ad Ready'],
     },
   ];
 
@@ -84,11 +57,8 @@ export const ServicesScreen: React.FC<ServicesScreenProps> = ({
     >
       <div className="systems__container bd-grid">
         <div className="section-header">
-          <span className="section-subtitle">HIGH-OCTANE DIGITAL SOLUTIONS</span>
-          <h2 className="section-title">CORE ENGINEERING SERVICES</h2>
-          <p className="section-lead">
-            Every solution is engineered to generate measurable business ROI, lightning-fast user experiences, and bulletproof operational reliability.
-          </p>
+          <span className="section-subtitle">MOST REQUESTED DIGITAL SOLUTIONS</span>
+          <h2 className="section-title">WEB DEVELOPMENT SERVICES</h2>
         </div>
 
         <div className="systems__grid">
@@ -127,11 +97,22 @@ export const ServicesScreen: React.FC<ServicesScreenProps> = ({
                   className="button button-outline system-card__btn"
                 >
                   <i className="bx bx-right-arrow-alt" />
-                  REQUEST BLUEPRINT
+                  GET QUOTE
                 </button>
               </div>
             </div>
           ))}
+        </div>
+
+        <div className="services-more-wrap">
+          <a href="/services.html" className="services-full-page-btn" title="View more web development services">
+            <span className="launch-icon-ring"><i className="bx bx-layer" /></span>
+            <div className="launch-text-wrap">
+              <span className="launch-headline">VIEW MORE</span>
+              <span className="launch-subline">EXPLORE ALL SERVICES</span>
+            </div>
+            <i className="bx bx-chevron-right launch-arrow" />
+          </a>
         </div>
       </div>
     </section>
