@@ -41,14 +41,14 @@ jobs:
       - name: TypeScript typecheck
         run: npm run lint
 
+      - name: Build allowlisted public-build directory
+        run: npm run build
+
       - name: Run Express security regression tests
         run: npm run test:security
 
       - name: Run contact inquiry regression tests
         run: npm run test:contact
-
-      - name: Build allowlisted public-build directory
-        run: npm run build
 
       - name: Upload public-build artifact
         uses: actions/upload-artifact@v4
@@ -166,9 +166,9 @@ jobs:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: |
           if [ -n "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-            npx firebase deploy --only "hosting:${{ env.HOSTING_SITE }}" --project "${{ env.PROJECT_ID }}" --non-interactive
+            firebase deploy --only "hosting:${{ env.HOSTING_SITE }}" --project "${{ env.PROJECT_ID }}" --non-interactive
           else
-            npx firebase deploy --only "hosting:${{ env.HOSTING_SITE }}" --project "${{ env.PROJECT_ID }}" --token "$FIREBASE_TOKEN" --non-interactive
+            firebase deploy --only "hosting:${{ env.HOSTING_SITE }}" --project "${{ env.PROJECT_ID }}" --token "$FIREBASE_TOKEN" --non-interactive
           fi
 
       - name: Deploy Firestore Rules (ravanatek-db ONLY - Opt-in via DEPLOY_FIRESTORE_RULES=true)
@@ -177,7 +177,7 @@ jobs:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: |
           if [ -n "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-            npx firebase deploy --only "firestore:${{ env.FIRESTORE_DB }}" --project "${{ env.PROJECT_ID }}" --non-interactive
+            firebase deploy --only "firestore:${{ env.FIRESTORE_DB }}" --project "${{ env.PROJECT_ID }}" --non-interactive
           else
-            npx firebase deploy --only "firestore:${{ env.FIRESTORE_DB }}" --project "${{ env.PROJECT_ID }}" --token "$FIREBASE_TOKEN" --non-interactive
+            firebase deploy --only "firestore:${{ env.FIRESTORE_DB }}" --project "${{ env.PROJECT_ID }}" --token "$FIREBASE_TOKEN" --non-interactive
           fi
