@@ -13,7 +13,11 @@
     "ignore": [
       "firebase.json",
       ".firebaserc",
-      "**/.*",
+      "**/.git/**",
+      "**/.env",
+      "**/.env.*",
+      "**/.DS_Store",
+      "**/.firebase/**",
       "**/node_modules/**"
     ],
     "headers": [
