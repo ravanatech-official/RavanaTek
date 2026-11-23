@@ -1,5 +1,8 @@
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /data/
+Disallow: /scripts/
+Disallow: /test/
 
 Sitemap: https://ravanatek.web.app/sitemap.xml

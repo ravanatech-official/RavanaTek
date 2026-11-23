@@ -1,110 +1,93 @@
-import express from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const app = express();
-const PORT = 3000;
+export const app = express();
+const PORT = Number(process.env.PORT) || 3000;
 const HOST = '0.0.0.0';
 const isProd = process.env.NODE_ENV === 'production';
+const STORAGE_BACKEND = process.env.STORAGE_BACKEND === 'cloud' ? 'cloud' : 'local';
 
-// Ultra-fast Gzip compression
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+
 app.use(compression({ level: 6, threshold: 256 }));
-app.use(express.json({ limit: '100kb' }));
-app.use(express.urlencoded({ extended: true, limit: '100kb' }));
+app.use(express.json({ limit: '32kb' }));
+app.use(express.urlencoded({ extended: true, limit: '32kb' }));
 
-// Security & Caching Headers
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
   res.setHeader('Timing-Allow-Origin', '*');
-  next();
-});
-
-// Specific static folders: Conceptual Projects & Assets
-const conceptualProjectsDir = path.join(__dirname, 'conceptual projects');
-app.use('/conceptual projects', express.static(conceptualProjectsDir));
-app.use('/conceptual-projects', express.static(conceptualProjectsDir));
-app.use('/assets', express.static(path.join(__dirname, 'assets')));
-app.use('/src/assets', express.static(path.join(__dirname, 'src/assets')));
-
-// Serve root media files (work images, avatars) without intercepting .html, .ts, .tsx
-app.use((req, res, next) => {
-  if (req.path.match(/\.(jpg|jpeg|png|webp|svg|ico|webmanifest|txt|xml)$/i)) {
-    const filePath = path.join(__dirname, req.path);
-    if (fs.existsSync(filePath)) {
-      return res.sendFile(filePath);
-    }
-    const imgPath = path.join(__dirname, 'assets/img', path.basename(req.path));
-    if (fs.existsSync(imgPath)) {
-      return res.sendFile(imgPath);
-    }
+  if (req.secure || req.get('x-forwarded-proto') === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
   next();
 });
 
-// ==================== REST API ENDPOINTS ====================
+const FORBIDDEN_PATH_PATTERN =
+  /(?:^|\/)(?:\.|data|src|test|scripts|node_modules|\.git|\.aistudio)(?:\/|$)|(?:^|\/)(?:server\.(?:js|ts)|package(?:-lock)?\.json|firebase-applet-config\.json|firebase-init\.js|vite\.config\.ts|tsconfig\.json|metadata\.json|firestore\.rules|firebase\.json|Dockerfile|\.dockerignore|cloudbuild\.yaml)(?:$|\/)/i;
 
-// 1. Conceptual Projects API
-app.get('/api/conceptual-projects', (req, res) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
+  let decodedPath = req.path;
   try {
-    if (!fs.existsSync(conceptualProjectsDir)) {
-      return res.json({ success: true, count: 50, projects: [] });
-    }
-    const files = fs.readdirSync(conceptualProjectsDir).filter((f) => f.endsWith('.html'));
-    return res.json({
-      success: true,
-      count: files.length,
-      projects: files.map((filename) => ({
-        filename,
-        url: `/conceptual projects/${encodeURIComponent(filename)}`,
-        cleanUrl: `/conceptual-projects/${encodeURIComponent(filename)}`,
-      })),
-    });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, error: error.message });
+    decodedPath = decodeURIComponent(req.path);
+  } catch {
+    return res.status(400).json({ success: false, error: 'Malformed request path' });
   }
+  const normalized = path.posix.normalize(decodedPath);
+  if (
+    req.path.includes('..') ||
+    decodedPath.includes('..') ||
+    normalized.includes('..') ||
+    /%2e/i.test(req.originalUrl) ||
+    FORBIDDEN_PATH_PATTERN.test(decodedPath) ||
+    FORBIDDEN_PATH_PATTERN.test(normalized)
+  ) {
+    if (normalized === '/.well-known/security.txt') {
+      return next();
+    }
+    return res.status(404).json({ success: false, error: 'Not found' });
+  }
+  next();
 });
 
-// 2. Health & Telemetry Endpoint
-app.get('/api/health', (req, res) => {
-  let projectCount = 50;
-  try {
-    if (fs.existsSync(conceptualProjectsDir)) {
-      projectCount = fs.readdirSync(conceptualProjectsDir).filter((f) => f.endsWith('.html')).length;
-    }
-  } catch (e) {
-    projectCount = 50;
-  }
-
-  return res.json({
-    status: 'optimal',
-    engine: 'Ravana Tech Raptor 3 React Architecture',
-    uptime: `${Math.floor(process.uptime())}s`,
-    timestamp: new Date().toISOString(),
-    telemetry: {
-      loadSpeed: '<0.20s',
-      securityScore: '100/100',
-      activeServices: 6,
-      readyBlueprints: projectCount,
-    },
-  });
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-// 3. Persistent Database Engine (JSON DB Layer)
-const DATA_DIR = path.join(__dirname, 'data');
-const DB_FILE = path.join(DATA_DIR, 'leads-db.json');
+const inquiryLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use('/api', apiLimiter);
+
+const DB_FILE = process.env.LEADS_DB_FILE
+  ? path.resolve(process.env.LEADS_DB_FILE)
+  : path.join(__dirname, 'data', 'leads-db.json');
 
 function initDb() {
+  if (STORAGE_BACKEND === 'cloud') return;
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    const dir = path.dirname(DB_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
     }
     if (!fs.existsSync(DB_FILE)) {
       const initialDb = {
@@ -121,59 +104,117 @@ function initDb() {
 
 initDb();
 
-function readDb() {
-  try {
-    initDb();
-    const raw = fs.readFileSync(DB_FILE, 'utf-8');
-    return JSON.parse(raw);
-  } catch (err) {
-    return { inquiries: [] };
+function saveLocalDbRecord(collection: string, record: any) {
+  initDb();
+  const raw = fs.readFileSync(DB_FILE, 'utf-8');
+  const db = JSON.parse(raw);
+  if (!db || typeof db !== 'object' || Array.isArray(db)) {
+    throw new Error('Corrupt database structure');
   }
+  if (!Array.isArray(db[collection])) {
+    db[collection] = [];
+  }
+  db[collection].unshift(record);
+  if (db[collection].length > 1000) {
+    db[collection] = db[collection].slice(0, 1000);
+  }
+  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf-8');
 }
 
-function saveDbRecord(collection: string, record: any) {
-  try {
-    initDb();
-    const db = readDb();
-    if (!Array.isArray(db[collection])) {
-      db[collection] = [];
-    }
-    db[collection].unshift(record);
-    if (db[collection].length > 1000) {
-      db[collection] = db[collection].slice(0, 1000);
-    }
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf-8');
-    return true;
-  } catch (err) {
-    console.error(`[DB WRITE ERROR: ${collection}]`, err);
-    return false;
-  }
-}
+const publicBuildDir = path.join(__dirname, 'public-build');
+const hasPublicBuild = fs.existsSync(path.join(publicBuildDir, 'index.html'));
+const publicRoot = hasPublicBuild ? publicBuildDir : __dirname;
+const conceptualProjectsDir = path.join(publicRoot, 'conceptual projects');
 
-// 4. Lead Intake & Validation Endpoint
-app.post('/api/inquiry', (req, res) => {
+app.use('/conceptual projects', express.static(conceptualProjectsDir));
+app.use('/conceptual-projects', express.static(conceptualProjectsDir));
+
+app.get('/api/conceptual-projects', (_req: Request, res: Response) => {
+  try {
+    if (!fs.existsSync(conceptualProjectsDir)) {
+      return res.json({ success: true, count: 0, projects: [] });
+    }
+    const files = fs.readdirSync(conceptualProjectsDir).filter((f) => f.endsWith('.html'));
+    return res.json({
+      success: true,
+      count: files.length,
+      projects: files.map((filename) => ({
+        filename,
+        url: `/conceptual projects/${encodeURIComponent(filename)}`,
+        cleanUrl: `/conceptual-projects/${encodeURIComponent(filename)}`,
+      })),
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/health', (_req: Request, res: Response) => {
+  let projectCount = 50;
+  try {
+    if (fs.existsSync(conceptualProjectsDir)) {
+      projectCount = fs.readdirSync(conceptualProjectsDir).filter((f) => f.endsWith('.html')).length;
+    }
+  } catch {
+    projectCount = 50;
+  }
+
+  return res.json({
+    status: 'online',
+    engine: 'Ravana Tech Raptor 3 Architecture',
+    uptime: `${Math.floor(process.uptime())}s`,
+    timestamp: new Date().toISOString(),
+    telemetry: {
+      loadSpeed: '<0.20s',
+      securityScore: '100/100',
+      activeServices: 6,
+      readyBlueprints: projectCount,
+    },
+  });
+});
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+app.post('/api/inquiry', inquiryLimiter, (req: Request, res: Response) => {
   try {
     const { name, email, service, message, source } = req.body || {};
-    if (!name || !email || !message) {
+    const cleanName = typeof name === 'string' ? name.trim() : '';
+    const cleanEmail = typeof email === 'string' ? email.trim() : '';
+    const cleanService = typeof service === 'string' && service.trim() ? service.trim() : 'General Inquiry';
+    const cleanMessage = typeof message === 'string' ? message.trim() : '';
+
+    if (!cleanName || !cleanEmail || !cleanMessage) {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields: name, email, and message are required.',
       });
     }
+    if (cleanName.length > 200 || cleanEmail.length > 200 || cleanService.length > 200 || cleanMessage.length > 5000) {
+      return res.status(400).json({
+        success: false,
+        error: 'One or more fields exceed allowed maximum length.',
+      });
+    }
+    if (!EMAIL_REGEX.test(cleanEmail)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide a valid email address.',
+      });
+    }
 
     const leadRecord = {
       id: `LEAD-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
-      name: String(name).trim(),
-      email: String(email).trim(),
-      service: String(service || 'General Inquiry').trim(),
-      message: String(message).trim(),
-      source: source || 'react_contact_form',
+      name: cleanName,
+      email: cleanEmail,
+      service: cleanService,
+      message: cleanMessage,
+      source: typeof source === 'string' && source.trim() ? source.trim().slice(0, 100) : 'react_contact_form',
       ip: req.ip || 'local',
-      userAgent: req.get('user-agent') || 'browser',
+      userAgent: (req.get('user-agent') || 'browser').slice(0, 250),
       receivedAt: new Date().toISOString(),
     };
 
-    saveDbRecord('inquiries', leadRecord);
+    saveLocalDbRecord('inquiries', leadRecord);
 
     return res.status(200).json({
       success: true,
@@ -182,12 +223,12 @@ app.post('/api/inquiry', (req, res) => {
       timestamp: leadRecord.receivedAt,
     });
   } catch (err) {
-    return res.status(500).json({ success: false, error: 'Internal processing error' });
+    console.error('[INQUIRY PERSISTENCE ERROR]', err);
+    return res.status(500).json({ success: false, error: 'Failed to persist inquiry.' });
   }
 });
 
-// 5. AI Lab Document Simulation Endpoint
-app.post('/api/document-sim', (req, res) => {
+app.post('/api/document-sim', (req: Request, res: Response) => {
   const { sampleId } = req.body || {};
   const samples: Record<string, any> = {
     submittal: {
@@ -225,33 +266,65 @@ app.post('/api/document-sim', (req, res) => {
   });
 });
 
+if (hasPublicBuild) {
+  app.use(express.static(publicBuildDir, { dotfiles: 'deny' }));
+} else {
+  app.use('/assets', express.static(path.join(__dirname, 'assets'), { dotfiles: 'deny' }));
+}
+
+function sendPublicHtml(res: Response, filename: string) {
+  const target = path.join(publicRoot, filename);
+  if (!fs.existsSync(target)) {
+    return res.status(404).json({ success: false, error: 'Not found' });
+  }
+  res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+  return res.sendFile(target);
+}
+
+app.get(['/', '/home', '/about', '/systems', '/contact', '/ai-lab', '/automation', '/lab', '/experience'], (_req: Request, res: Response) => {
+  return sendPublicHtml(res, 'index.html');
+});
+
+app.get(['/projects', '/archive', '/gallery', '/projects.html', '/gallery.html'], (_req: Request, res: Response) => {
+  return sendPublicHtml(res, 'projects.html');
+});
+
+app.get(['/services', '/all-services', '/services.html'], (_req: Request, res: Response) => {
+  return sendPublicHtml(res, 'services.html');
+});
+
+app.get(['/privacy', '/privacy.html'], (_req: Request, res: Response) => {
+  return sendPublicHtml(res, 'privacy.html');
+});
+
+app.get(['/terms', '/terms.html'], (_req: Request, res: Response) => {
+  return sendPublicHtml(res, 'terms.html');
+});
+
+app.get(['/security', '/security.html'], (_req: Request, res: Response) => {
+  return sendPublicHtml(res, 'security.html');
+});
+
+app.get(['/data-policy', '/data-policy.html'], (_req: Request, res: Response) => {
+  return sendPublicHtml(res, 'data-policy.html');
+});
+
+app.use((_req: Request, res: Response) => {
+  return res.status(404).json({ success: false, error: 'Not found' });
+});
+
+const isMainModule = Boolean(
+  process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename)
+);
+
 async function main() {
-  if (!isProd) {
+  if (!isProd && !hasPublicBuild) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true, host: '0.0.0.0' },
-      appType: 'spa',
+      appType: 'custom',
     });
     app.use(vite.middlewares);
-
-    // Serve transformed index.html for SPA routes
-    app.use('*', async (req, res, next) => {
-      const url = req.originalUrl;
-      try {
-        const indexPath = path.join(__dirname, 'index.html');
-        let template = fs.readFileSync(indexPath, 'utf-8');
-        template = await vite.transformIndexHtml(url, template);
-        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
-      } catch (e: any) {
-        vite.ssrFixStacktrace(e);
-        next(e);
-      }
-    });
-  } else {
-    const distPath = path.join(__dirname, 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
   }
 
   app.listen(PORT, HOST, () => {
@@ -259,7 +332,9 @@ async function main() {
   });
 }
 
-main().catch((err) => {
-  console.error('[Server Error]', err);
-  process.exit(1);
-});
+if (isMainModule) {
+  main().catch((err) => {
+    console.error('[Server Error]', err);
+    process.exit(1);
+  });
+}

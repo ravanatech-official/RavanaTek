@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting
+name: Build, Harden & Deploy RavanaTek (Cloud Run + Firebase Hosting)
 
 on:
   push:
@@ -7,53 +7,169 @@ on:
       - master
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-ravanatek-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID || 'ravanatek' }}
+  REGION: ${{ vars.GCP_REGION || 'asia-southeast1' }}
+  SERVICE_NAME: ravanatek-backend
+  HOSTING_SITE: ravanatek
+
 jobs:
-  build_and_deploy:
+  ci_build_and_test:
+    name: CI Lint, Security Tests & Allowlist Build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Mode 1: When FIREBASE_SERVICE_ACCOUNT_RAVANATEK (or RAVANATEC) is configured (Recommended by Google)
-      - name: Deploy via Firebase Service Account
-        if: env.HAS_SERVICE_ACCOUNT == 'true'
-        uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEK || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEC }}
-          channelId: live
-          projectId: ravanatek
-        env:
-          HAS_SERVICE_ACCOUNT: ${{ (secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEK || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEC) != '' }}
+          node-version: "24"
+          cache: npm
 
-      # Mode 2: When FIREBASE_TOKEN is configured (Standard CLI Token fallback)
-      - name: Deploy via Firebase CLI Token
-        if: env.HAS_SERVICE_ACCOUNT != 'true' && env.HAS_FIREBASE_TOKEN == 'true'
-        run: |
-          npm install -g firebase-tools
-          firebase deploy --only hosting,firestore:rules --project ravanatek --token "${{ secrets.FIREBASE_TOKEN }}"
-        env:
-          HAS_SERVICE_ACCOUNT: ${{ (secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEK || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEC) != '' }}
-          HAS_FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN != '' }}
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
-      # Validation & Guide if neither secret is present
-      - name: Secret Configuration Notice
-        if: env.HAS_SERVICE_ACCOUNT != 'true' && env.HAS_FIREBASE_TOKEN != 'true'
-        run: |
-          echo "::error::Neither FIREBASE_SERVICE_ACCOUNT_RAVANATEK nor FIREBASE_TOKEN secret was found in this GitHub repository!"
-          echo "------------------------------------------------------------------------"
-          echo "HOW TO ACTIVATE AUTOMATIC DEPLOYMENT IN 2 SIMPLE STEPS:"
-          echo "Option A (Fastest - 1 Minute):"
-          echo "1. On your machine run: npx firebase login:ci"
-          echo "2. Copy the token generated in terminal."
-          echo "3. Go to GitHub repo Settings -> Secrets and variables -> Actions -> New repository secret"
-          echo "4. Name: FIREBASE_TOKEN | Value: <paste copied token>"
-          echo ""
-          echo "Option B (Service Account):"
-          echo "1. Firebase Console -> Project Settings -> Service accounts -> Generate new private key"
-          echo "2. Name: FIREBASE_SERVICE_ACCOUNT_RAVANATEK | Value: <paste entire JSON contents>"
-          echo "------------------------------------------------------------------------"
-          exit 1
+      - name: TypeScript typecheck
+        run: npm run lint
+
+      - name: Run Express security regression tests
+        run: npm run test:security
+
+      - name: Run contact inquiry regression tests
+        run: npm run test:contact
+
+      - name: Build allowlisted public-build directory
+        run: npm run build
+
+      - name: Upload public-build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ravanatek-public-build
+          path: public-build
+          retention-days: 3
+
+  deploy_cloud_run:
+    name: Deploy Cloud Run Backend (ravanatek-backend)
+    needs: ci_build_and_test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check deployment credentials
+        id: creds
         env:
-          HAS_SERVICE_ACCOUNT: ${{ (secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEK || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEC) != '' }}
-          HAS_FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN != '' }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEK || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEC }}
+        run: |
+          if [ -n "$GCP_SA_KEY" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "::error::Missing GCP_SA_KEY (or FIREBASE_SERVICE_ACCOUNT_RAVANATEK) secret."
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEK || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEC }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker "${{ env.REGION }}-docker.pkg.dev" --quiet
+
+      - name: Build & push container image
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Deploy Cloud Run service
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          flags: >-
+            --allow-unauthenticated
+            --service-account=ravanatek-backend-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+            --port=8080
+            --memory=512Mi
+            --cpu=1
+            --min-instances=0
+            --max-instances=5
+            --concurrency=80
+            --timeout=60
+          env_vars: |
+            NODE_ENV=production
+            STORAGE_BACKEND=cloud
+            FIREBASE_PROJECT_ID=${{ env.PROJECT_ID }}
+
+  deploy_firebase:
+    name: Deploy Firebase Hosting (Site ravanatek only)
+    needs: deploy_cloud_run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download public-build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ravanatek-public-build
+          path: public-build
+
+      - name: Check Firebase auth secret
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEK || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEC }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          if [ -z "$GCP_SA_KEY" ] && [ -z "$FIREBASE_TOKEN" ]; then
+            echo "::error::Neither GCP_SA_KEY nor FIREBASE_TOKEN secret is configured."
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud (ADC for Firebase CLI)
+        if: ${{ (secrets.GCP_SA_KEY || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEK || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEC) != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEK || secrets.FIREBASE_SERVICE_ACCOUNT_RAVANATEC }}
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy Firebase Hosting (ravanatek site ONLY - never touches raone-ai or raone-suva-seva)
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          if [ -n "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+            npx firebase deploy --only "hosting:${{ env.HOSTING_SITE }}" --project "${{ env.PROJECT_ID }}" --non-interactive
+          else
+            npx firebase deploy --only "hosting:${{ env.HOSTING_SITE }}" --project "${{ env.PROJECT_ID }}" --token "$FIREBASE_TOKEN" --non-interactive
+          fi
+
+      - name: Deploy Firestore Rules (Opt-in ONLY via DEPLOY_FIRESTORE_RULES=true)
+        if: ${{ vars.DEPLOY_FIRESTORE_RULES == 'true' }}
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          if [ -n "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+            npx firebase deploy --only firestore:rules --project "${{ env.PROJECT_ID }}" --non-interactive
+          else
+            npx firebase deploy --only firestore:rules --project "${{ env.PROJECT_ID }}" --token "$FIREBASE_TOKEN" --non-interactive
+          fi

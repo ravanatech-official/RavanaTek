@@ -11,9 +11,16 @@ const rootFiles = [
   'index.html',
   'projects.html',
   'services.html',
+  'privacy.html',
+  'terms.html',
+  'security.html',
+  'data-policy.html',
+  '404.html',
   'googled6cb87aabbea33cf.html',
   'robots.txt',
   'sitemap.xml',
+  'security.txt',
+  '.well-known/security.txt',
   'api/conceptual-projects.json',
   'styles.css',
   'main.js',
@@ -22,7 +29,6 @@ const rootFiles = [
   'favicon.png',
   'favicon.svg',
   'apple-touch-icon.png',
-  'manifest.json',
   'manifest.webmanifest',
   'assets/js/projects-data.js',
   'assets/js/gallery.js',
@@ -55,16 +61,24 @@ const mappedFiles = [
     source: 'src/assets/images/ravana_tech_logo_1792581937150.jpg',
     destination: 'assets/img/ravana_tech_logo_1792581937150.jpg',
   },
+  {
+    source: 'src/assets/images/ravana_tech_logo_opt.webp',
+    destination: 'assets/img/ravana_tech_logo_opt.webp',
+  },
 ];
 
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 
 for (const relativePath of rootFiles) {
-  await cp(path.join(root, relativePath), path.join(output, relativePath));
+  const dest = path.join(output, relativePath);
+  await mkdir(path.dirname(dest), { recursive: true });
+  await cp(path.join(root, relativePath), dest);
 }
 for (const { source, destination } of mappedFiles) {
-  await cp(path.join(root, source), path.join(output, destination));
+  const dest = path.join(output, destination);
+  await mkdir(path.dirname(dest), { recursive: true });
+  await cp(path.join(root, source), dest);
 }
 
 const registry = await readFile(path.join(root, 'assets/js/projects-data.js'), 'utf8');

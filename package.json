@@ -6,13 +6,20 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "build": "echo 'Build complete'",
-    "lint": "echo 'No lint errors'"
+    "build": "node scripts/build-public.mjs",
+    "lint": "tsc --noEmit",
+    "test": "node --test test/public-exposure.test.mjs test/contact-form.test.mjs test/inquiry-client.test.mjs",
+    "test:security": "node --test test/public-exposure.test.mjs",
+    "test:contact": "node --test test/contact-form.test.mjs test/inquiry-client.test.mjs",
+    "test:contact:browser": "node --test test/contact-form.browser.test.mjs",
+    "test:hosting": "node scripts/test-firebase-hosting.mjs"
   },
   "dependencies": {
     "compression": "^1.8.2",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.7.5",
     "firebase": "^13.0.0",
+    "firebase-admin": "^14.5.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

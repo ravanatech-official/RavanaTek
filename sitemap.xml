@@ -5,20 +5,62 @@
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
     <url>
         <loc>https://ravanatek.web.app/</loc>
-        <lastmod>2026-10-11T00:00:00+00:00</lastmod>
-        <changefreq>daily</changefreq>
+        <lastmod>2026-11-22T00:00:00+00:00</lastmod>
+        <changefreq>weekly</changefreq>
         <priority>1.00</priority>
     </url>
     <url>
-        <loc>https://ravanatek.web.app/projects</loc>
-        <lastmod>2026-10-11T00:00:00+00:00</lastmod>
-        <changefreq>daily</changefreq>
+        <loc>https://ravanatek.web.app/about</loc>
+        <lastmod>2026-11-22T00:00:00+00:00</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.85</priority>
+    </url>
+    <url>
+        <loc>https://ravanatek.web.app/systems</loc>
+        <lastmod>2026-11-22T00:00:00+00:00</lastmod>
+        <changefreq>weekly</changefreq>
         <priority>0.90</priority>
     </url>
     <url>
-        <loc>https://ravanatek.web.app/services.html</loc>
-        <lastmod>2026-10-11T00:00:00+00:00</lastmod>
-        <changefreq>daily</changefreq>
+        <loc>https://ravanatek.web.app/services</loc>
+        <lastmod>2026-11-22T00:00:00+00:00</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.90</priority>
+    </url>
+    <url>
+        <loc>https://ravanatek.web.app/projects</loc>
+        <lastmod>2026-11-22T00:00:00+00:00</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.90</priority>
+    </url>
+    <url>
+        <loc>https://ravanatek.web.app/contact</loc>
+        <lastmod>2026-11-22T00:00:00+00:00</lastmod>
+        <changefreq>monthly</changefreq>
         <priority>0.85</priority>
+    </url>
+    <url>
+        <loc>https://ravanatek.web.app/privacy</loc>
+        <lastmod>2026-11-22T00:00:00+00:00</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.40</priority>
+    </url>
+    <url>
+        <loc>https://ravanatek.web.app/terms</loc>
+        <lastmod>2026-11-22T00:00:00+00:00</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.40</priority>
+    </url>
+    <url>
+        <loc>https://ravanatek.web.app/security</loc>
+        <lastmod>2026-11-22T00:00:00+00:00</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.50</priority>
+    </url>
+    <url>
+        <loc>https://ravanatek.web.app/data-policy</loc>
+        <lastmod>2026-11-22T00:00:00+00:00</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.40</priority>
     </url>
 </urlset>
