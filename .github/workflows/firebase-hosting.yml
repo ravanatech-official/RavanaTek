@@ -55,6 +55,7 @@ jobs:
         with:
           name: ravanatek-public-build
           path: public-build
+          include-hidden-files: true
           retention-days: 3
 
   deploy_cloud_run:
