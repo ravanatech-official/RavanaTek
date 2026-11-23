@@ -35,6 +35,8 @@ const rootFiles = [
   'assets/js/main.js',
   'assets/js/firebase-init.js',
   'assets/js/contact-form.js',
+  'assets/img/icon-192.png',
+  'assets/img/icon-512.png',
   'assets/img/image_01_opt.webp',
   'assets/img/image_01_mobile.webp',
   'assets/img/image_01_mobile.jpg',

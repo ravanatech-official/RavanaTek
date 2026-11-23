@@ -21,6 +21,32 @@ app.use(compression({ level: 6, threshold: 256 }));
 app.use(express.json({ limit: '32kb' }));
 app.use(express.urlencoded({ extended: true, limit: '32kb' }));
 
+const DEFAULT_ORIGINS = [
+  'https://ravanatek.web.app',
+  'https://ravanatek.firebaseapp.com',
+];
+const allowedOrigins = new Set(
+  (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean)
+    .concat(DEFAULT_ORIGINS)
+);
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  }
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
@@ -32,6 +58,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.secure || req.get('x-forwarded-proto') === 'https') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://unpkg.com https://cdn.tailwindcss.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: https:; connect-src 'self' https://firestore.googleapis.com https://firebaseinstallations.googleapis.com https://www.google-analytics.com https://region1.google-analytics.com; frame-src 'self' https://maps.google.com https://www.google.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+  );
   next();
 });
 
@@ -174,14 +204,15 @@ app.get('/api/health', (_req: Request, res: Response) => {
 });
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const stripControl = (val: string) => val.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim();
 
 app.post('/api/inquiry', inquiryLimiter, (req: Request, res: Response) => {
   try {
     const { name, email, service, message, source } = req.body || {};
-    const cleanName = typeof name === 'string' ? name.trim() : '';
-    const cleanEmail = typeof email === 'string' ? email.trim() : '';
-    const cleanService = typeof service === 'string' && service.trim() ? service.trim() : 'General Inquiry';
-    const cleanMessage = typeof message === 'string' ? message.trim() : '';
+    const cleanName = typeof name === 'string' ? stripControl(name).replace(/[\r\n]+/g, ' ') : '';
+    const cleanEmail = typeof email === 'string' ? stripControl(email).replace(/[\r\n\s]+/g, '') : '';
+    const cleanService = typeof service === 'string' && stripControl(service) ? stripControl(service).replace(/[\r\n]+/g, ' ') : 'General Inquiry';
+    const cleanMessage = typeof message === 'string' ? stripControl(message) : '';
 
     if (!cleanName || !cleanEmail || !cleanMessage) {
       return res.status(400).json({
@@ -264,6 +295,15 @@ app.post('/api/document-sim', (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     document: doc,
   });
+});
+
+app.get('/.well-known/security.txt', (_req: Request, res: Response) => {
+  const secPath = path.join(publicRoot, '.well-known', 'security.txt');
+  if (fs.existsSync(secPath)) {
+    res.type('text/plain; charset=utf-8');
+    return res.sendFile(secPath);
+  }
+  return res.status(404).json({ success: false, error: 'Not found' });
 });
 
 if (hasPublicBuild) {

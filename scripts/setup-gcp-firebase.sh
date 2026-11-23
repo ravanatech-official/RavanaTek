@@ -11,6 +11,7 @@ PROJECT_ID="${PROJECT_ID:-ravanatek}"
 REGION="${REGION:-asia-southeast1}"
 AR_REPO="${AR_REPO:-cloud-run-source-deploy}"
 SERVICE_NAME="${SERVICE_NAME:-ravanatek-backend}"
+FIRESTORE_DB="${FIRESTORE_DB:-ravanatek-db}"
 RUNTIME_SA_NAME="ravanatek-backend-sa"
 RUNTIME_SA="${RUNTIME_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 DEPLOYER_SA_NAME="${DEPLOYER_SA_NAME:-ravanatek-github-deployer}"
@@ -45,6 +46,17 @@ if ! gcloud artifacts repositories describe "${AR_REPO}" --location="${REGION}" 
     --project="${PROJECT_ID}"
 else
   echo "Artifact Registry repo '${AR_REPO}' already exists."
+fi
+
+echo "==> [3b/6] Ensuring dedicated Firestore database '${FIRESTORE_DB}' in ${REGION} (Standard Native)..."
+if ! gcloud firestore databases describe --database="${FIRESTORE_DB}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  gcloud firestore databases create \
+    --database="${FIRESTORE_DB}" \
+    --location="${REGION}" \
+    --type=firestore-native \
+    --project="${PROJECT_ID}"
+else
+  echo "Firestore database '${FIRESTORE_DB}' already exists."
 fi
 
 echo "==> [4/6] Creating / verifying Cloud Run Runtime Service Account: ${RUNTIME_SA}..."
@@ -82,6 +94,7 @@ for ROLE in \
   roles/cloudbuild.builds.editor \
   roles/artifactregistry.admin \
   roles/firebasehosting.admin \
+  roles/firebaserules.admin \
   roles/iam.serviceAccountUser \
   roles/serviceusage.serviceUsageConsumer \
   roles/logging.viewer \
@@ -98,4 +111,4 @@ echo "  1. Create deployer JSON key:"
 echo "     gcloud iam service-accounts keys create ravanatek-deployer-key.json --iam-account=${DEPLOYER_SA}"
 echo "  2. Download via: cloudshell download ravanatek-deployer-key.json"
 echo "  3. Add GitHub Secret GCP_SA_KEY with exact JSON content (then shred/rm local key)."
-echo "  4. Add GitHub Variables: GCP_PROJECT_ID=${PROJECT_ID}, GCP_REGION=${REGION}, DEPLOY_FIRESTORE_RULES=false"
+echo "  4. Add GitHub Variables: GCP_PROJECT_ID=${PROJECT_ID}, GCP_REGION=${REGION}, FIRESTORE_DATABASE_ID=${FIRESTORE_DB}, DEPLOY_FIRESTORE_RULES=true"

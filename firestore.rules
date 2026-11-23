@@ -2,10 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // =========================================================================
-    // MULTI-SITE SAFETY NOTICE:
-    // If another site in project `ravanatek` shares the `(default)` Firestore
-    // database (RaOne-AI uses its own named DB `ai-studio-raoneai-...`), merge
-    // that site's collection rules here BEFORE running `deploy --only firestore:rules`.
+    // MULTI-SITE ISOLATION:
+    // Dedicated to named Firestore database `ravanatek-db` (configured in firebase.json).
+    // Isolated from `ai-studio-raoneai-...` (RaOne-AI) and `suvaseva-db` (RaOne-Suva-Seva).
     // =========================================================================
 
     // Inquiries / Leads Collection (Ravana Tech):

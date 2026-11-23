@@ -47,7 +47,7 @@ if (typeof window !== "undefined" && PRODUCTION_FIREBASE_HOSTS.has(window.locati
 
 export let db = null;
 try {
-  db = getFirestore(app);
+  db = getFirestore(app, "ravanatek-db");
 } catch (err) {
   console.info("[Firestore] Firestore initialized or deferred:", err);
 }

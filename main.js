@@ -5,14 +5,11 @@ const showMenu = (toggleId, navId) => {
 
     if (toggle && nav) {
         toggle.addEventListener('click', () => {
-            nav.classList.toggle('show');
+            const isOpen = nav.classList.toggle('show');
+            toggle.setAttribute('aria-expanded', String(isOpen));
             const icon = toggle.querySelector('i');
             if (icon) {
-                if (nav.classList.contains('show')) {
-                    icon.className = 'bx bx-x';
-                } else {
-                    icon.className = 'bx bx-menu';
-                }
+                icon.className = isOpen ? 'bx bx-x' : 'bx bx-menu';
             }
         });
     }
@@ -29,6 +26,7 @@ function linkAction() {
         navMenu.classList.remove('show');
     }
     if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
         const icon = toggle.querySelector('i');
         if (icon) icon.className = 'bx bx-menu';
     }
@@ -514,8 +512,9 @@ if (document.readyState === 'loading') {
         resize();
     }, { passive: true });
 
+    const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     resize();
-    if (!document.hidden) {
+    if (!document.hidden && !prefersReducedMotion) {
         startAnimation();
     }
 })();
@@ -588,14 +587,28 @@ if (document.readyState === 'loading') {
         });
     });
 
-    // 2. HUD TOAST NOTIFICATION UTILITY
+    function escapeHtml(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // 2. HUD TOAST NOTIFICATION UTILITY (XSS-safe DOM nodes)
     function showLabToast(message, icon = 'bx-check-circle') {
         const existing = document.querySelector('.lab-toast');
         if (existing) existing.remove();
 
         const toast = document.createElement('div');
         toast.className = 'lab-toast';
-        toast.innerHTML = `<i class='bx ${icon}'></i><span>${message}</span>`;
+        const iconEl = document.createElement('i');
+        iconEl.className = `bx ${String(icon).replace(/[^a-z0-9_-]/gi, '')}`;
+        const spanEl = document.createElement('span');
+        spanEl.textContent = String(message ?? '');
+        toast.appendChild(iconEl);
+        toast.appendChild(spanEl);
         document.body.appendChild(toast);
 
         setTimeout(() => {
@@ -975,7 +988,7 @@ if (document.readyState === 'loading') {
         const timeStr = `[${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}]`;
         const div = document.createElement('div');
         div.className = 'term-line';
-        div.innerHTML = `<span class="term-time">${timeStr}</span> <span class="term-agent" style="color:${color};">[${agent}]</span> ${message}`;
+        div.innerHTML = `<span class="term-time">${timeStr}</span> <span class="term-agent" style="color:${color};">[${escapeHtml(agent)}]</span> ${escapeHtml(message)}`;
         swarmConsole.appendChild(div);
         swarmConsole.scrollTop = swarmConsole.scrollHeight;
     }
@@ -1254,88 +1267,105 @@ if (document.readyState === 'loading') {
         console.warn('Real CV profile load deferred:', e);
     }
 
-    function buildCvTemplates(p) {
-        const isCustomRaw = p.rawCv && p.rawCv.trim().length > 30;
+    function buildCvTemplates(rawProfile) {
+        const safeUrl = /^https?:\/\//i.test(String(rawProfile.portfolioUrl || '')) ? escapeHtml(rawProfile.portfolioUrl) : 'https://ravanatek.web.app/ai-lab';
+        const p = {
+            ...rawProfile,
+            safeName: escapeHtml(rawProfile.name),
+            safeTitle: escapeHtml(rawProfile.title),
+            safePhone: escapeHtml(rawProfile.phone),
+            safeEmail: escapeHtml(rawProfile.email),
+            safeLocation: escapeHtml(rawProfile.location),
+            safeProfile: escapeHtml(rawProfile.profile),
+            safeRawCv: escapeHtml(rawProfile.rawCv),
+            safePortfolioUrl: safeUrl,
+            safeSkills: (Array.isArray(rawProfile.skills) ? rawProfile.skills : []).map(escapeHtml),
+            safeEducation: (Array.isArray(rawProfile.education) ? rawProfile.education : []).map(escapeHtml),
+            safeExperienceHtml: Array.isArray(rawProfile.experience)
+                ? rawProfile.experience.map(exp => `
+                    <div class="cv-item">
+                        <div class="cv-item-header">
+                            <span class="cv-item-role">${escapeHtml(exp.role)}</span>
+                            <span class="cv-item-company">${escapeHtml(exp.company)}</span>
+                            <span class="cv-item-date">${escapeHtml(exp.dates)}</span>
+                        </div>
+                        <ul class="cv-bullet-list">
+                            ${(exp.bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('')}
+                        </ul>
+                    </div>
+                `).join('')
+                : `<pre style="white-space: pre-wrap; font-family: var(--font-mono); color: #D0E8F5;">${escapeHtml(rawProfile.experience)}</pre>`
+        };
+        const isCustomRaw = rawProfile.rawCv && rawProfile.rawCv.trim().length > 30;
 
         // 1. Document Controller CV
-        const docCopy = isCustomRaw ? p.rawCv : `${p.name}
-${p.title}
-Email: ${p.email} | Phone / WhatsApp: ${p.phone}
-Location: ${p.location} | Portfolio: ${p.portfolioUrl}
+        const docCopy = isCustomRaw ? rawProfile.rawCv : `${rawProfile.name}
+${rawProfile.title}
+Email: ${rawProfile.email} | Phone / WhatsApp: ${rawProfile.phone}
+Location: ${rawProfile.location} | Portfolio: ${rawProfile.portfolioUrl}
 
 EXECUTIVE PROFILE:
-${p.profile}
+${rawProfile.profile}
 
 CORE SKILLS & TECHNICAL EXPERTISE:
-${p.skills.map(s => `- ${s}`).join('\n')}
+${(rawProfile.skills || []).map(s => `- ${s}`).join('\n')}
 
 PROFESSIONAL EXPERIENCE:
-${Array.isArray(p.experience) ? p.experience.map(exp => `
+${Array.isArray(rawProfile.experience) ? rawProfile.experience.map(exp => `
 ${exp.role.toUpperCase()} | ${exp.company} (${exp.dates})
-${exp.bullets.map(b => `- ${b}`).join('\n')}`).join('\n') : p.experience}
+${(exp.bullets || []).map(b => `- ${b}`).join('\n')}`).join('\n') : rawProfile.experience}
 
 EDUCATION & CREDENTIALS:
-${p.education.map(e => `- ${e}`).join('\n')}`;
+${(rawProfile.education || []).map(e => `- ${e}`).join('\n')}`;
 
         const docHtml = isCustomRaw ? `
             <div class="cv-paper">
-                <h1>${p.name}</h1>
-                <div class="cv-title-tag">${p.title}</div>
+                <h1>${p.safeName}</h1>
+                <div class="cv-title-tag">${p.safeTitle}</div>
                 <div class="cv-contact-row">
-                    <span><i class='bx bx-envelope'></i> ${p.email}</span>
-                    <span><i class='bx bxl-whatsapp'></i> ${p.phone}</span>
-                    <span><i class='bx bx-map'></i> ${p.location}</span>
+                    <span><i class='bx bx-envelope'></i> ${p.safeEmail}</span>
+                    <span><i class='bx bxl-whatsapp'></i> ${p.safePhone}</span>
+                    <span><i class='bx bx-map'></i> ${p.safeLocation}</span>
                 </div>
                 <div class="cv-section" style="margin-top: 1.5rem;">
                     <div class="cv-section-title">REAL CURRICULUM VITAE // VERIFIED PROFILE</div>
-                    <pre style="white-space: pre-wrap; font-family: var(--font-mono); color: #D0E8F5; line-height: 1.6; font-size: 0.88rem; background: rgba(0, 191, 255, 0.04); padding: 1.25rem; border-radius: 6px; border: 1px solid var(--rt-border);">${p.rawCv}</pre>
+                    <pre style="white-space: pre-wrap; font-family: var(--font-mono); color: #D0E8F5; line-height: 1.6; font-size: 0.88rem; background: rgba(0, 191, 255, 0.04); padding: 1.25rem; border-radius: 6px; border: 1px solid var(--rt-border);">${p.safeRawCv}</pre>
                 </div>
             </div>
         ` : `
             <div class="cv-paper">
-                <h1>${p.name}</h1>
-                <div class="cv-title-tag">${p.title}</div>
+                <h1>${p.safeName}</h1>
+                <div class="cv-title-tag">${p.safeTitle}</div>
                 <div class="cv-contact-row">
-                    <span><i class='bx bx-envelope'></i> ${p.email}</span>
-                    <span><i class='bx bxl-whatsapp'></i> ${p.phone}</span>
-                    <span><i class='bx bx-globe'></i> <a href="${p.portfolioUrl}" target="_blank">ravanatek.web.app/ai-lab</a></span>
-                    <span><i class='bx bx-map'></i> ${p.location}</span>
+                    <span><i class='bx bx-envelope'></i> ${p.safeEmail}</span>
+                    <span><i class='bx bxl-whatsapp'></i> ${p.safePhone}</span>
+                    <span><i class='bx bx-globe'></i> <a href="${p.safePortfolioUrl}" target="_blank" rel="noopener noreferrer">ravanatek.web.app/ai-lab</a></span>
+                    <span><i class='bx bx-map'></i> ${p.safeLocation}</span>
                 </div>
 
                 <div class="cv-section">
                     <div class="cv-section-title">EXECUTIVE PROFILE</div>
                     <p style="color:#D0E8F5; line-height:1.6;">
-                        ${p.profile}
+                        ${p.safeProfile}
                     </p>
                 </div>
 
                 <div class="cv-section">
                     <div class="cv-section-title">CORE SKILLS &amp; TECHNICAL EXPERTISE</div>
                     <ul class="cv-bullet-list">
-                        ${p.skills.map(s => `<li>${s}</li>`).join('')}
+                        ${p.safeSkills.map(s => `<li>${s}</li>`).join('')}
                     </ul>
                 </div>
 
                 <div class="cv-section">
                     <div class="cv-section-title">PROFESSIONAL EXPERIENCE</div>
-                    ${Array.isArray(p.experience) ? p.experience.map(exp => `
-                        <div class="cv-item">
-                            <div class="cv-item-header">
-                                <span class="cv-item-role">${exp.role}</span>
-                                <span class="cv-item-company">${exp.company}</span>
-                                <span class="cv-item-date">${exp.dates}</span>
-                            </div>
-                            <ul class="cv-bullet-list">
-                                ${exp.bullets.map(b => `<li>${b}</li>`).join('')}
-                            </ul>
-                        </div>
-                    `).join('') : `<pre style="white-space: pre-wrap; font-family: var(--font-mono); color: #D0E8F5;">${p.experience}</pre>`}
+                    ${p.safeExperienceHtml}
                 </div>
 
                 <div class="cv-section">
                     <div class="cv-section-title">EDUCATION &amp; CERTIFICATIONS</div>
                     <ul class="cv-bullet-list">
-                        ${p.education.map(e => `<li>${e}</li>`).join('')}
+                        ${p.safeEducation.map(e => `<li>${e}</li>`).join('')}
                     </ul>
                 </div>
             </div>
@@ -1365,13 +1395,13 @@ ${p.education.map(e => `- ${e}`).join('\n')}`;
 
         const dataHtml = `
             <div class="cv-paper">
-                <h1>${p.name}</h1>
+                <h1>${p.safeName}</h1>
                 <div class="cv-title-tag">DATA ENTRY SPECIALIST &amp; AI WORKFLOW ARCHITECT</div>
                 <div class="cv-contact-row">
-                    <span><i class='bx bx-envelope'></i> ${p.email}</span>
-                    <span><i class='bx bxl-whatsapp'></i> ${p.phone}</span>
-                    <span><i class='bx bx-globe'></i> <a href="${p.portfolioUrl}" target="_blank">ravanatek.web.app/ai-lab</a></span>
-                    <span><i class='bx bx-map'></i> ${p.location}</span>
+                    <span><i class='bx bx-envelope'></i> ${p.safeEmail}</span>
+                    <span><i class='bx bxl-whatsapp'></i> ${p.safePhone}</span>
+                    <span><i class='bx bx-globe'></i> <a href="${p.safePortfolioUrl}" target="_blank" rel="noopener noreferrer">ravanatek.web.app/ai-lab</a></span>
+                    <span><i class='bx bx-map'></i> ${p.safeLocation}</span>
                 </div>
 
                 <div class="cv-section">
@@ -1393,18 +1423,7 @@ ${p.education.map(e => `- ${e}`).join('\n')}`;
 
                 <div class="cv-section">
                     <div class="cv-section-title">WORK EXPERIENCE</div>
-                    ${Array.isArray(p.experience) ? p.experience.map(exp => `
-                        <div class="cv-item">
-                            <div class="cv-item-header">
-                                <span class="cv-item-role">${exp.role}</span>
-                                <span class="cv-item-company">${exp.company}</span>
-                                <span class="cv-item-date">${exp.dates}</span>
-                            </div>
-                            <ul class="cv-bullet-list">
-                                ${exp.bullets.map(b => `<li>${b}</li>`).join('')}
-                            </ul>
-                        </div>
-                    `).join('') : `<pre style="white-space: pre-wrap; font-family: var(--font-mono); color: #D0E8F5;">${p.experience}</pre>`}
+                    ${p.safeExperienceHtml}
                 </div>
             </div>
         `;
@@ -1421,23 +1440,23 @@ By leveraging Google AI Studio, Gemini Flash OCR, and automated Google App Scrip
 2. Eliminate revision collisions and ensure 100% compliance with Master Document Register (MDR) standards.
 3. Remove manual typos and duplicate entries through automated regex validation.
 
-I have engineered and deployed working systems that handle thousands of engineering blueprints, commercial delivery notes, and project records with 100% data integrity. You can explore my live interactive demonstrations directly at: ${p.portfolioUrl}
+I have engineered and deployed working systems that handle thousands of engineering blueprints, commercial delivery notes, and project records with 100% data integrity. You can explore my live interactive demonstrations directly at: ${rawProfile.portfolioUrl}
 
 I am available for immediate placement and am fully ready for UAE / Gulf relocation or high-performance remote engagement. I welcome the opportunity to discuss how my disciplined document control and automation capabilities will immediately benefit your project team.
 
 Sincerely,
-${p.name}
+${rawProfile.name}
 Lead Document Controller & Automation Specialist
-Email: ${p.email} | WhatsApp: ${p.phone}`;
+Email: ${rawProfile.email} | WhatsApp: ${rawProfile.phone}`;
 
         const clHtml = `
             <div class="cv-paper">
                 <h1>COVER LETTER // EXECUTIVE SUBMISSION</h1>
                 <div class="cv-title-tag">TARGET: DOCUMENT CONTROLLER &amp; DATA ENTRY SPECIALIST</div>
                 <div class="cv-contact-row">
-                    <span><i class='bx bx-user'></i> ${p.name}</span>
-                    <span><i class='bx bx-envelope'></i> ${p.email}</span>
-                    <span><i class='bx bxl-whatsapp'></i> ${p.phone}</span>
+                    <span><i class='bx bx-user'></i> ${p.safeName}</span>
+                    <span><i class='bx bx-envelope'></i> ${p.safeEmail}</span>
+                    <span><i class='bx bxl-whatsapp'></i> ${p.safePhone}</span>
                 </div>
 
                 <div class="cv-section">
@@ -1457,7 +1476,7 @@ Email: ${p.email} | WhatsApp: ${p.phone}`;
                         <li><strong>Purge manual typos and duplicate entries</strong> through automated regex and schema validation.</li>
                     </ul>
                     <p style="color:#D0E8F5; line-height:1.7; margin-bottom:1rem;">
-                        You can interactively test my real-time Document Controller Simulator and automated batch pipelines live at: <a href="${p.portfolioUrl}" target="_blank" style="color:var(--rt-cyan-bright); font-weight:700;">ravanatek.web.app/ai-lab</a>.
+                        You can interactively test my real-time Document Controller Simulator and automated batch pipelines live at: <a href="${p.safePortfolioUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--rt-cyan-bright); font-weight:700;">ravanatek.web.app/ai-lab</a>.
                     </p>
                     <p style="color:#D0E8F5; line-height:1.7;">
                         I am available for immediate appointment and am fully prepared for <strong>UAE / Dubai relocation or high-performance remote engagement</strong>. Thank you for your time and consideration.
@@ -1468,7 +1487,7 @@ Email: ${p.email} | WhatsApp: ${p.phone}`;
 
         // 4. LinkedIn Headline & About
         const liCopy = `LINKEDIN HEADLINE:
-${p.name} | Document Controller & Data Entry Specialist | AI Workflow Automation & EDMS Architecture | Google AI Studio, Gemini, Advanced Excel & Cloud Pipelines | 0-Error Data Integrity
+${rawProfile.name} | Document Controller & Data Entry Specialist | AI Workflow Automation & EDMS Architecture | Google AI Studio, Gemini, Advanced Excel & Cloud Pipelines | 0-Error Data Integrity
 
 LINKEDIN ABOUT SECTION:
 Are your engineering teams losing hours every day searching for drawing revisions, manually typing transmittals, or fixing spreadsheet typos?
@@ -1483,9 +1502,9 @@ What I Bring to Your Organization:
 - Automated Ingestion Pipelines: Reducing manual logging from 4.5 hrs to 15 mins
 - Full Compliance with UAE / Gulf / International Engineering Standards
 
-Explore my live interactive Document Controller Simulator: ${p.portfolioUrl}
+Explore my live interactive Document Controller Simulator: ${rawProfile.portfolioUrl}
 Open to UAE / Gulf Relocation & International Remote Roles.
-Contact: ${p.email} | WhatsApp: ${p.phone}`;
+Contact: ${rawProfile.email} | WhatsApp: ${rawProfile.phone}`;
 
         const liHtml = `
             <div class="cv-paper">
@@ -1495,7 +1514,7 @@ Contact: ${p.email} | WhatsApp: ${p.phone}`;
                 <div class="cv-section">
                     <div class="cv-section-title">SUGGESTED LINKEDIN HEADLINE (HIGH-CTR)</div>
                     <div style="background:rgba(0,191,255,0.08); padding:0.85rem; border-radius:8px; border:1px solid var(--rt-border); font-family:var(--font-mono); font-size:0.85rem; color:#FFF;">
-                        ${p.name} | Document Controller &amp; Data Entry Specialist | AI Workflow Automation &amp; EDMS Architecture | Google AI Studio, Gemini, Advanced Excel &amp; Cloud Pipelines | 0-Error Data Integrity
+                        ${p.safeName} | Document Controller &amp; Data Entry Specialist | AI Workflow Automation &amp; EDMS Architecture | Google AI Studio, Gemini, Advanced Excel &amp; Cloud Pipelines | 0-Error Data Integrity
                     </div>
                 </div>
 

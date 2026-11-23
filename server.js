@@ -16,6 +16,14 @@ const STORAGE_BACKEND = process.env.STORAGE_BACKEND === 'cloud' ? 'cloud' : 'loc
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
+function logEvent(severity, event, meta = {}) {
+  if (process.env.NODE_ENV === 'production') {
+    console.log(JSON.stringify({ severity, event, timestamp: new Date().toISOString(), ...meta }));
+  } else if (severity === 'ERROR') {
+    console.error(`[${event}]`, meta);
+  }
+}
+
 // Ultra-fast Gzip compression
 app.use(compression({ level: 6, threshold: 256, memLevel: 8 }));
 app.use(express.json({ limit: '32kb' }));
@@ -130,8 +138,8 @@ async function getCloudFirestore() {
       const adminApp = getApps()[0] || initializeApp({
         projectId: process.env.FIREBASE_PROJECT_ID || 'ravanatek',
       });
-      const dbId = process.env.FIRESTORE_DATABASE_ID;
-      return dbId ? getFirestore(adminApp, dbId) : getFirestore(adminApp);
+      const dbId = process.env.FIRESTORE_DATABASE_ID || 'ravanatek-db';
+      return getFirestore(adminApp, dbId);
     })();
   }
   return firestoreClientPromise;
@@ -271,14 +279,15 @@ app.get('/api/health', async (req, res) => {
 });
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const stripControl = (val) => val.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim();
 
 app.post('/api/inquiry', inquiryLimiter, async (req, res) => {
   try {
     const { name, email, service, message, source } = req.body || {};
-    const cleanName = typeof name === 'string' ? name.trim() : '';
-    const cleanEmail = typeof email === 'string' ? email.trim() : '';
-    const cleanService = typeof service === 'string' && service.trim() ? service.trim() : 'General Inquiry';
-    const cleanMessage = typeof message === 'string' ? message.trim() : '';
+    const cleanName = typeof name === 'string' ? stripControl(name).replace(/[\r\n]+/g, ' ') : '';
+    const cleanEmail = typeof email === 'string' ? stripControl(email).replace(/[\r\n\s]+/g, '') : '';
+    const cleanService = typeof service === 'string' && stripControl(service) ? stripControl(service).replace(/[\r\n]+/g, ' ') : 'General Inquiry';
+    const cleanMessage = typeof message === 'string' ? stripControl(message) : '';
 
     if (!cleanName || !cleanEmail || !cleanMessage) {
       return res.status(400).json({
@@ -333,6 +342,7 @@ app.post('/api/inquiry', inquiryLimiter, async (req, res) => {
     }
 
     saveLocalDbRecord('inquiries', leadRecord);
+    logEvent('INFO', 'inquiry_persisted', { backend: 'local', service: cleanService });
     return res.status(200).json({
       success: true,
       message: 'Inquiry received and permanently stored in Ravana Tech Database.',
@@ -340,7 +350,7 @@ app.post('/api/inquiry', inquiryLimiter, async (req, res) => {
       timestamp: leadRecord.receivedAt,
     });
   } catch (err) {
-    console.error('[INQUIRY PERSISTENCE ERROR]', err);
+    logEvent('ERROR', 'inquiry_persistence_failed', { error: err?.message || 'unknown' });
     return res.status(500).json({ success: false, error: 'Failed to persist inquiry.' });
   }
 });
@@ -424,6 +434,14 @@ if (hasPublicBuild) {
   app.use(express.static(publicBuildDir, staticCacheOptions));
 } else {
   // Local dev fallback before `npm run build`: expose ONLY explicit public assets, never root
+  app.get('/assets/img/ravana_tech_logo_1792581937150.jpg', (_req, res) => {
+    const logoPath = path.join(__dirname, 'src', 'assets', 'images', 'ravana_tech_logo_1792581937150.jpg');
+    return fs.existsSync(logoPath) ? res.sendFile(logoPath) : res.status(404).end();
+  });
+  app.get('/assets/img/ravana_tech_logo_opt.webp', (_req, res) => {
+    const logoPath = path.join(__dirname, 'src', 'assets', 'images', 'ravana_tech_logo_opt.webp');
+    return fs.existsSync(logoPath) ? res.sendFile(logoPath) : res.status(404).end();
+  });
   app.use('/assets', express.static(path.join(__dirname, 'assets'), staticCacheOptions));
   app.use('/api/conceptual-projects.json', express.static(path.join(__dirname, 'api', 'conceptual-projects.json'), staticCacheOptions));
   const allowedRootAssets = new Set([

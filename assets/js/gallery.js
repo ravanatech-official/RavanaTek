@@ -281,7 +281,7 @@
     if (totalPages <= maxDots) {
       for (let p = 1; p <= totalPages; p++) {
         dotsHtml += `
-          <button type="button" class="gallery-batch-dot ${p === currentPage ? 'active' : ''}" data-page="${p}" title="Batch ${p}"></button>
+          <button type="button" class="gallery-batch-dot ${p === currentPage ? 'active' : ''}" data-page="${p}" title="Batch ${p}" aria-label="Go to batch ${p} of ${totalPages}"></button>
         `;
       }
     } else {
@@ -290,7 +290,7 @@
       const endP = Math.min(totalPages, currentPage + 2);
       for (let p = startP; p <= endP; p++) {
         dotsHtml += `
-          <button type="button" class="gallery-batch-dot ${p === currentPage ? 'active' : ''}" data-page="${p}" title="Batch ${p}"></button>
+          <button type="button" class="gallery-batch-dot ${p === currentPage ? 'active' : ''}" data-page="${p}" title="Batch ${p}" aria-label="Go to batch ${p} of ${totalPages}"></button>
         `;
       }
     }
@@ -402,6 +402,7 @@
     setDeviceViewport(currentDevice);
 
     modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
 
     // Update URL hash without scroll
@@ -414,6 +415,7 @@
     if (!modal) return;
 
     modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
     if (iframe) iframe.src = 'about:blank';
     document.body.style.overflow = '';
     currentModalIndex = -1;

@@ -1,7 +1,10 @@
 {
-  "firestore": {
-    "rules": "firestore.rules"
-  },
+  "firestore": [
+    {
+      "database": "ravanatek-db",
+      "rules": "firestore.rules"
+    }
+  ],
   "hosting": {
     "site": "ravanatek",
     "public": "public-build",
