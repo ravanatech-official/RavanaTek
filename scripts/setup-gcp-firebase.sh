@@ -110,9 +110,9 @@ for ROLE in \
     --condition=None >/dev/null
 done
 
-echo "==> [7/7] Safely merging RavanaTek HTTP referrers onto shared Browser API Key (preserving sibling sites)..."
+echo "==> [7/7] Checking shared Browser API Key restrictions (preserving sibling sites)..."
 if command -v python3 >/dev/null 2>&1; then
-  python3 - <<PY || echo "Note: Skipping API key auto-update (check permissions or update manually in Console)."
+  python3 - <<PY || echo "Note: Skipping API key update (update manually in Console if needed)."
 import json, subprocess
 
 TARGET_KEY = "${WEB_API_KEY:-AIzaSyC7WWfls56qBV_9jmaAx6BtLh_BkL6GI1U}"
@@ -126,25 +126,41 @@ if key_name:
         text=True
     ))
     restrictions = info.get("restrictions") or {}
-    if not any(k in restrictions for k in ("serverKeyRestrictions", "androidKeyRestrictions", "iosKeyRestrictions")):
-        existing_refs = (restrictions.get("browserKeyRestrictions") or {}).get("allowedReferrers") or []
-        existing_apis = [t.get("service") for t in (restrictions.get("apiTargets") or []) if t.get("service")]
-        needed_refs = [
-            "https://ravanatek.web.app/*",
-            "https://ravanatek.firebaseapp.com/*",
-        ]
+    existing_refs = (restrictions.get("browserKeyRestrictions") or {}).get("allowedReferrers") or []
+    existing_apis = [t.get("service") for t in (restrictions.get("apiTargets") or []) if t.get("service")]
+    needed_refs = [
+        "https://ravanatek.web.app/*",
+        "https://ravanatek.firebaseapp.com/*",
+    ]
+    needed_apis = [
+        "firestore.googleapis.com",
+        "firebaseinstallations.googleapis.com",
+        "firebase.googleapis.com",
+    ]
+    missing_refs = [r for r in needed_refs if r not in existing_refs]
+    missing_apis = [a for a in needed_apis if existing_apis and a not in existing_apis]
+
+    if existing_refs and missing_refs and not any(k in restrictions for k in ("serverKeyRestrictions", "androidKeyRestrictions", "iosKeyRestrictions")):
         merged_refs = list(dict.fromkeys(existing_refs + needed_refs))
-        needed_apis = [
-            "firestore.googleapis.com",
-            "firebaseinstallations.googleapis.com",
-            "firebase.googleapis.com",
-        ]
-        merged_apis = list(dict.fromkeys(existing_apis + needed_apis)) if existing_apis else []
-        cmd = ["gcloud", "services", "api-keys", "update", key_name, "--allowed-referrers=" + ",".join(merged_refs)]
+        subprocess.check_call([
+            "gcloud", "services", "api-keys", "update", key_name,
+            "--allowed-referrers=" + ",".join(merged_refs),
+        ])
+        print("API key referrers safely merged:", merged_refs)
+    elif not existing_refs:
+        print("API key has no HTTP referrer restriction (open to all project sites) — keeping as-is.")
+    else:
+        print("API key referrers already include RavanaTek.")
+
+    if missing_apis:
+        merged_apis = list(dict.fromkeys(existing_apis + needed_apis))
+        cmd = ["gcloud", "services", "api-keys", "update", key_name]
         for svc in merged_apis:
             cmd.append(f"--api-target=service={svc}")
         subprocess.check_call(cmd)
-        print("API key referrers safely merged:", merged_refs)
+        print("API key targets updated with:", missing_apis)
+    else:
+        print("API key already permits Firestore, Installations & Firebase APIs.")
 PY
 fi
 

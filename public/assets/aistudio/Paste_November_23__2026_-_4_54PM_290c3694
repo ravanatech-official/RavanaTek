@@ -1,0 +1,514 @@
+Welcome to Cloud Shell! Type "help" to get started.
+Your Cloud Platform project in this session is set to ravanatek.
+Use `gcloud config set project [PROJECT_ID]` to change to a different project.
+hello_ravanatech@cloudshell:~ (ravanatek)$ cd ~/RavanaTek-deploy && gcloud config set project ravanatek
+
+python3 - <<'PY' || true
+import json, subprocess
+KEY = "AIzaSyC7WWfls56qBV_9jmaAx6BtLh_BkL6GI1U"
+name = subprocess.check_output(["gcloud", "services", "api-keys", "lookup", KEY, "--format=value(name)"], text=True).strip()
+info = json.loads(subprocess.check_output(["gcloud", "services", "api-keys", "describe", name, "--format=json"], text=True))
+r = info.get("restrictions") or {}
+refs = list(dict.fromkeys(((r.get("browserKeyRestrictions") or {}).get("allowedReferrers") or []) + ["https://ravanatek.web.app/*", "https://ravanatek.firebaseapp.com/*"]))
+apis = [t.get("service") for t in (r.get("apiTargets") or []) if t.get("service")]
+cmd = ["gcloud", "services", "api-keys", "update", name, "--allowed-referrers=" + ",".join(refs)]
+if apis:
+    for s in list(dict.fromkeys(apis + ["firestore.googleapis.com", "firebaseinstallations.googleapis.com", "firebase.googleapis.com"])):
+        cmd.append(f"--api-target=service={s}")
+subprocess.check_call(cmd)
+print("API_KEY_MERGED_OK:", refs)
+PY
+
+npm ci --ignore-scripts --no-audit --no-fund && npm run lint && npm run test:security && npm run test:contact && npm run build
+Updated property [core/project].
+ERROR: (gcloud.services.api-keys.update) FAILED_PRECONDITION: Unable to update key restrictions. Active usage in the last 7 days was detected for service(s): generativelanguage.googleapis.com,geocoding-backend.googleapis.com,iam.googleapis.com,places-backend.googleapis.com,pubsub.googleapis.com,static-maps-backend.googleapis.com. To override this protection and apply the change, set check_existing_usage to SKIP.
+Help Token: AaVM3aOnPf6vTlq-1y8aFa30ahKEU70CWuy_1VbjPmDkGLYlkpmGTWwMv65ewHuZ1ri5_557sEM5zkTwnPmfRRX2og8o6gIZfbQ4i5RJqYTdrpGF
+- '@type': type.googleapis.com/google.rpc.PreconditionFailure
+  violations:
+  - subject: ?error_code=904058&services=generativelanguage.googleapis.com&services=geocoding-backend.googleapis.com&services=iam.googleapis.com&services=places-backend.googleapis.com&services=pubsub.googleapis.com&services=static-maps-backend.googleapis.com
+    type: googleapis.com
+- '@type': type.googleapis.com/google.rpc.ErrorInfo
+  domain: apikeys.googleapis.com
+  metadata:
+    services: generativelanguage.googleapis.com,geocoding-backend.googleapis.com,iam.googleapis.com,places-backend.googleapis.com,pubsub.googleapis.com,static-maps-backend.googleapis.com
+  reason: APIKEYS_RESTRICTION_INCOMPATIBLE_WITH_USAGE
+Traceback (most recent call last):
+  File "<stdin>", line 12, in <module>
+  File "/usr/lib/python3.12/subprocess.py", line 413, in check_call
+    raise CalledProcessError(retcode, cmd)
+subprocess.CalledProcessError: Command '['gcloud', 'services', 'api-keys', 'update', 'projects/9399444155
+89/locations/global/keys/ace4c433-4dcc-4f1c-8afd-562d0c4f6b81', '--allowed-referrers=https://ravanatek.we
+b.app/*,https://ravanatek.firebaseapp.com/*', '--api-target=service=firebasedatabase.googleapis.com', '--
+api-target=service=firebasehosting.googleapis.com', '--api-target=service=firebaserules.googleapis.com', 
+'--api-target=service=sqladmin.googleapis.com', '--api-target=service=cloudconfig.googleapis.com', '--api
+-target=service=datastore.googleapis.com', '--api-target=service=fcmregistrations.googleapis.com', '--api
+-target=service=firebase.googleapis.com', '--api-target=service=firebaseappcheck.googleapis.com', '--api-
+target=service=firebaseappdistribution.googleapis.com', '--api-target=service=firebaseapphosting.googleap
+is.com', '--api-target=service=firebaseapptesters.googleapis.com', '--api-target=service=firebasedataconn
+ect.googleapis.com', '--api-target=service=firebaseinappmessaging.googleapis.com', '--api-target=service=
+firebaseinstallations.googleapis.com', '--api-target=service=firebaseml.googleapis.com', '--api-target=se
+rvice=firebaseremoteconfig.googleapis.com', '--api-target=service=firebaseremoteconfigrealtime.googleapis
+.com', '--api-target=service=firebasestorage.googleapis.com', '--api-target=service=firebasevertexai.goog
+leapis.com', '--api-target=service=firestore.googleapis.com', '--api-target=service=identitytoolkit.googl
+eapis.com', '--api-target=service=logging.googleapis.com', '--api-target=service=mlkit.googleapis.com', '
+--api-target=service=play.googleapis.com', '--api-target=service=securetoken.googleapis.com', '--api-targ
+et=service=fpnv.googleapis.com']' returned non-zero exit status 1.
+npm error code EUSAGE
+npm error
+npm error `npm ci` can only install packages when your package.json and package-lock.json are in sync. Pl
+ease update your lock file with `npm install` before continuing.
+npm error
+npm error Missing: @esbuild/aix-ppc64@0.28.2 from lock file
+npm error Missing: @esbuild/android-arm@0.28.2 from lock file
+npm error Missing: @esbuild/android-arm64@0.28.2 from lock file
+npm error Missing: @esbuild/android-x64@0.28.2 from lock file
+npm error Missing: @esbuild/darwin-arm64@0.28.2 from lock file
+npm error Missing: @esbuild/darwin-x64@0.28.2 from lock file
+npm error Missing: @esbuild/freebsd-arm64@0.28.2 from lock file
+npm error Missing: @esbuild/freebsd-x64@0.28.2 from lock file
+npm error Missing: @esbuild/linux-arm@0.28.2 from lock file
+npm error Missing: @esbuild/linux-arm64@0.28.2 from lock file
+npm error Missing: @esbuild/linux-ia32@0.28.2 from lock file
+npm error Missing: @esbuild/linux-loong64@0.28.2 from lock file
+npm error Missing: @esbuild/linux-mips64el@0.28.2 from lock file
+npm error Missing: @esbuild/linux-ppc64@0.28.2 from lock file
+npm error Missing: @esbuild/linux-riscv64@0.28.2 from lock file
+npm error Missing: @esbuild/linux-s390x@0.28.2 from lock file
+npm error Missing: @esbuild/netbsd-arm64@0.28.2 from lock file
+npm error Missing: @esbuild/netbsd-x64@0.28.2 from lock file
+npm error Missing: @esbuild/openbsd-arm64@0.28.2 from lock file
+npm error Missing: @esbuild/openbsd-x64@0.28.2 from lock file
+npm error Missing: @esbuild/openharmony-arm64@0.28.2 from lock file
+npm error Missing: @esbuild/sunos-x64@0.28.2 from lock file
+npm error Missing: @esbuild/win32-arm64@0.28.2 from lock file
+npm error Missing: @esbuild/win32-ia32@0.28.2 from lock file
+npm error Missing: @esbuild/win32-x64@0.28.2 from lock file
+npm error Missing: lightningcss-android-arm64@1.33.0 from lock file
+npm error Missing: lightningcss-darwin-arm64@1.33.0 from lock file
+npm error Missing: lightningcss-darwin-x64@1.33.0 from lock file
+npm error Missing: lightningcss-freebsd-x64@1.33.0 from lock file
+npm error Missing: lightningcss-linux-arm-gnueabihf@1.33.0 from lock file
+npm error Missing: lightningcss-linux-arm64-gnu@1.33.0 from lock file
+npm error Missing: lightningcss-linux-arm64-musl@1.33.0 from lock file
+npm error Missing: lightningcss-linux-x64-musl@1.33.0 from lock file
+npm error Missing: lightningcss-win32-arm64-msvc@1.33.0 from lock file
+npm error Missing: lightningcss-win32-x64-msvc@1.33.0 from lock file
+npm error Missing: @rolldown/binding-android-arm-eabi@1.2.19 from lock file
+npm error Missing: @rolldown/binding-android-arm64@1.2.19 from lock file
+npm error Missing: @rolldown/binding-darwin-arm64@1.2.19 from lock file
+npm error Missing: @rolldown/binding-darwin-x64@1.2.19 from lock file
+npm error Missing: @rolldown/binding-freebsd-x64@1.2.19 from lock file
+npm error Missing: @rolldown/binding-linux-arm-gnueabihf@1.2.19 from lock file
+npm error Missing: @rolldown/binding-linux-arm64-gnu@1.2.19 from lock file
+npm error Missing: @rolldown/binding-linux-arm64-musl@1.2.19 from lock file
+npm error Missing: @rolldown/binding-linux-ppc64-gnu@1.2.19 from lock file
+npm error Missing: @rolldown/binding-linux-s390x-gnu@1.2.19 from lock file
+npm error Missing: @rolldown/binding-linux-x64-musl@1.2.19 from lock file
+npm error Missing: @rolldown/binding-openharmony-arm64@1.2.19 from lock file
+npm error Missing: @rolldown/binding-wasm32-wasi@1.2.19 from lock file
+npm error Missing: @rolldown/binding-win32-arm64-msvc@1.2.19 from lock file
+npm error Missing: @rolldown/binding-win32-x64-msvc@1.2.19 from lock file
+npm error Missing: @emnapi/core@2.0.0-beta.2 from lock file
+npm error Missing: @emnapi/runtime@2.0.0-beta.2 from lock file
+npm error Missing: @napi-rs/wasm-runtime@1.2.6 from lock file
+npm error Missing: @emnapi/wasi-threads@2.2.0 from lock file
+npm error Missing: @tybys/wasm-util@0.10.5 from lock file
+npm error Missing: fsevents@2.3.3 from lock file
+npm error Missing: @typescript/typescript-aix-ppc64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-darwin-arm64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-darwin-x64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-freebsd-arm64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-freebsd-x64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-linux-arm@7.0.2 from lock file
+npm error Missing: @typescript/typescript-linux-arm64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-linux-loong64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-linux-mips64el@7.0.2 from lock file
+npm error Missing: @typescript/typescript-linux-ppc64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-linux-riscv64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-linux-s390x@7.0.2 from lock file
+npm error Missing: @typescript/typescript-netbsd-arm64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-netbsd-x64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-openbsd-arm64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-openbsd-x64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-sunos-x64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-win32-arm64@7.0.2 from lock file
+npm error Missing: @typescript/typescript-win32-x64@7.0.2 from lock file
+npm error
+npm error Clean install a project
+npm error
+npm error Usage:
+npm error npm ci
+npm error
+npm error Options:
+npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts]
+npm error [--allow-directory <all|none|root>] [--allow-file <all|none|root>]
+npm error [--allow-git <all|none|root>] [--allow-remote <all|none|root>]
+npm error [--allow-scripts <package-list> [--allow-scripts <package-list> ...]]
+npm error [--strict-allow-scripts] [--dangerously-allow-all-scripts] [--no-audit]
+npm error [--no-bin-links] [--no-fund] [--dry-run]
+npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+npm error [--workspaces] [--include-workspace-root] [--install-links]
+npm error
+npm error   --install-strategy
+npm error     Sets the strategy for installing packages in node_modules.
+npm error
+npm error   --legacy-bundling
+npm error     Instead of hoisting package installs in `node_modules`, install packages
+npm error
+npm error   --global-style
+npm error     Only install direct dependencies in the top level `node_modules`,
+npm error
+npm error   --omit
+npm error     Dependency types to omit from the installation tree on disk.
+npm error
+npm error   --include
+npm error     Option that allows for defining which types of dependencies to install.
+npm error
+npm error   --strict-peer-deps
+npm error     If set to `true`, and `--legacy-peer-deps` is not set, then _any_
+npm error
+npm error   --foreground-scripts
+npm error     Run all build scripts (ie, `preinstall`, `install`, and
+npm error
+npm error   --ignore-scripts
+npm error     If true, npm does not run scripts specified in package.json files.
+npm error
+npm error   --allow-directory
+npm error     Limits the ability for npm to install dependencies from directories.
+npm error
+npm error   --allow-file
+npm error     Limits the ability for npm to install dependencies from tarball files.
+npm error
+npm error   --allow-git
+npm error     Limits the ability for npm to fetch dependencies from git references.
+npm error
+npm error   --allow-remote
+npm error     Limits the ability for npm to fetch dependencies from urls.
+npm error
+npm error   --allow-scripts
+npm error     Comma-separated list of packages whose install-time lifecycle scripts
+npm error
+npm error   --strict-allow-scripts
+npm error     If `true`, turn the install-script policy from a warning into a hard
+npm error
+npm error   --dangerously-allow-all-scripts
+npm error     If `true`, bypass the `allowScripts` policy entirely and run every
+npm error
+npm error   --audit
+npm error     When "true" submit audit reports alongside the current npm command to the
+npm error
+npm error   --bin-links
+npm error     Tells npm to create symlinks (or `.cmd` shims on Windows) for package
+npm error
+npm error   --fund
+npm error     When "true" displays the message at the end of each `npm install`
+npm error
+npm error   --dry-run
+npm error     Indicates that you don't want npm to make any changes and that it should
+npm error
+npm error   -w|--workspace
+npm error     Enable running a command in the context of the configured workspaces of the
+npm error
+npm error   --workspaces
+npm error     Set to true to run the command in the context of **all** configured
+npm error
+npm error   --include-workspace-root
+npm error     Include the workspace root when workspaces are enabled for a command.
+npm error
+npm error   --install-links
+npm error     When set file: protocol dependencies will be packed and installed as
+npm error
+npm error
+npm error aliases: clean-install, ic, install-clean, isntall-clean
+npm error
+npm error Run "npm help ci" for more info
+npm error A complete log of this run can be found in: /home/hello_ravanatech/.npm/_logs/2026-11-23T11_20_
+49_214Z-debug-0.log
+hello_ravanatech@cloudshell:~/RavanaTek-deploy (ravanatek)$ cd ~/RavanaTek-deploy
+SHORT_SHA="$(git rev-parse --short HEAD)"
+
+gcloud builds submit --project="ravanatek" --config="cloudbuild.yaml" --substitutions="SHORT_SHA=${SHORT_SHA}" .
+
+npx --yes firebase-tools deploy --only "hosting:ravanatek,firestore:ravanatek-db" --project "ravanatek"
+Creating temporary archive of 213 file(s) totalling 44.7 MiB before compression.
+Some files were not included in the source upload.
+
+Check the gcloud log [/tmp/tmp.PrSXDl1OjY/logs/2026.11.23/11.21.14.643704.log] to see which files and the
+ contents of the
+default gcloudignore file used (see `$ gcloud topic gcloudignore` to learn
+more).
+
+Uploading tarball of [.] to [gs://ravanatek_cloudbuild/source/1795432874.902432-92ee83c3a6b649f58bf835519
+c8652d2.tgz]
+Created [https://cloudbuild.googleapis.com/v1/projects/ravanatek/locations/global/builds/5438f51b-1ecb-4d
+36-bd59-b161a6128b0f].
+Logs are available at [ https://console.cloud.google.com/cloud-build/builds/5438f51b-1ecb-4d36-bd59-b161a
+6128b0f?project=939944415589 ].
+Waiting for build to complete. Polling interval: 1 second(s).
+------------------------------------------ REMOTE BUILD OUTPUT ------------------------------------------
+starting build "5438f51b-1ecb-4d36-bd59-b161a6128b0f" using release legacy
+
+FETCHSOURCE
+Fetching storage object: gs://ravanatek_cloudbuild/source/1795432874.902432-92ee83c3a6b649f58bf835519c865
+2d2.tgz#1795432932484508
+BUILD
+Starting Step #0
+Step #0: Already have image (with digest): gcr.io/cloud-builders/docker
+Step #0: Sending build context to Docker daemon   28.3MB
+Step #0: Step 1/29 : FROM node:24-slim AS builder
+Step #0: 24-slim: Pulling from library/node
+Step #0: dd051e1b8c92: Pulling fs layer
+Step #0: 22a7c5e442cd: Pulling fs layer
+Step #0: 5030a48eb5b0: Pulling fs layer
+Step #0: e727da478d47: Pulling fs layer
+Step #0: c34f02d00fde: Pulling fs layer
+Step #0: c34f02d00fde: Verifying Checksum
+Step #0: c34f02d00fde: Download complete
+Step #0: 22a7c5e442cd: Verifying Checksum
+Step #0: 22a7c5e442cd: Download complete
+Step #0: e727da478d47: Verifying Checksum
+Step #0: e727da478d47: Download complete
+Step #0: dd051e1b8c92: Verifying Checksum
+Step #0: dd051e1b8c92: Download complete
+Step #0: 5030a48eb5b0: Verifying Checksum
+Step #0: 5030a48eb5b0: Download complete
+Step #0: dd051e1b8c92: Pull complete
+Step #0: 22a7c5e442cd: Pull complete
+Step #0: 5030a48eb5b0: Pull complete
+Step #0: e727da478d47: Pull complete
+Step #0: c34f02d00fde: Pull complete
+Step #0: Digest: sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
+Step #0: Status: Downloaded newer image for node:24-slim
+Step #0:  5ba3c1ded6ea
+Step #0: Step 2/29 : WORKDIR /app
+Step #0:  Running in 8e8d6917eae9
+Step #0: Removing intermediate container 8e8d6917eae9
+Step #0:  942c96da0fd4
+Step #0: Step 3/29 : COPY package.json package-lock.json* ./
+Step #0:  2dcfa4e1d0b4
+Step #0: Step 4/29 : RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+Step #0:  Running in ac6453b49de7
+Step #0: npm error code EUSAGE
+Step #0: npm error
+Step #0: npm error `npm ci` can only install packages when your package.json and package-lock.json or npm
+-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+Step #0: npm error
+Step #0: npm error Missing: @esbuild/aix-ppc64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/android-arm@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/android-arm64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/android-x64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/darwin-arm64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/darwin-x64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/freebsd-arm64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/freebsd-x64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/linux-arm@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/linux-arm64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/linux-ia32@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/linux-loong64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/linux-mips64el@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/linux-ppc64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/linux-riscv64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/linux-s390x@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/netbsd-arm64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/netbsd-x64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/openbsd-arm64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/openbsd-x64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/openharmony-arm64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/sunos-x64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/win32-arm64@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/win32-ia32@0.28.2 from lock file
+Step #0: npm error Missing: @esbuild/win32-x64@0.28.2 from lock file
+Step #0: npm error Missing: lightningcss-android-arm64@1.33.0 from lock file
+Step #0: npm error Missing: lightningcss-darwin-arm64@1.33.0 from lock file
+Step #0: npm error Missing: lightningcss-darwin-x64@1.33.0 from lock file
+Step #0: npm error Missing: lightningcss-freebsd-x64@1.33.0 from lock file
+Step #0: npm error Missing: lightningcss-linux-arm-gnueabihf@1.33.0 from lock file
+Step #0: npm error Missing: lightningcss-linux-arm64-gnu@1.33.0 from lock file
+Step #0: npm error Missing: lightningcss-linux-arm64-musl@1.33.0 from lock file
+Step #0: npm error Missing: lightningcss-linux-x64-musl@1.33.0 from lock file
+Step #0: npm error Missing: lightningcss-win32-arm64-msvc@1.33.0 from lock file
+Step #0: npm error Missing: lightningcss-win32-x64-msvc@1.33.0 from lock file
+Step #0: npm error Missing: @rolldown/binding-android-arm-eabi@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-android-arm64@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-darwin-arm64@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-darwin-x64@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-freebsd-x64@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-linux-arm-gnueabihf@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-linux-arm64-gnu@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-linux-arm64-musl@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-linux-ppc64-gnu@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-linux-s390x-gnu@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-linux-x64-musl@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-openharmony-arm64@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-wasm32-wasi@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-win32-arm64-msvc@1.2.19 from lock file
+Step #0: npm error Missing: @rolldown/binding-win32-x64-msvc@1.2.19 from lock file
+Step #0: npm error Missing: @emnapi/core@2.0.0-beta.2 from lock file
+Step #0: npm error Missing: @emnapi/runtime@2.0.0-beta.2 from lock file
+Step #0: npm error Missing: @napi-rs/wasm-runtime@1.2.6 from lock file
+Step #0: npm error Missing: @emnapi/wasi-threads@2.2.0 from lock file
+Step #0: npm error Missing: @tybys/wasm-util@0.10.5 from lock file
+Step #0: npm error Missing: fsevents@2.3.3 from lock file
+Step #0: npm error Missing: @typescript/typescript-aix-ppc64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-darwin-arm64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-darwin-x64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-freebsd-arm64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-freebsd-x64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-linux-arm@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-linux-arm64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-linux-loong64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-linux-mips64el@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-linux-ppc64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-linux-riscv64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-linux-s390x@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-netbsd-arm64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-netbsd-x64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-openbsd-arm64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-openbsd-x64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-sunos-x64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-win32-arm64@7.0.2 from lock file
+Step #0: npm error Missing: @typescript/typescript-win32-x64@7.0.2 from lock file
+Step #0: npm error
+Step #0: npm error Clean install a project
+Step #0: npm error
+Step #0: npm error Usage:
+Step #0: npm error npm ci
+Step #0: npm error
+Step #0: npm error Options:
+Step #0: npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+Step #0: npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+Step #0: npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+Step #0: npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts]
+Step #0: npm error [--allow-directory <all|none|root>] [--allow-file <all|none|root>]
+Step #0: npm error [--allow-git <all|none|root>] [--allow-remote <all|none|root>]
+Step #0: npm error [--allow-scripts <package-list> [--allow-scripts <package-list> ...]]
+Step #0: npm error [--strict-allow-scripts] [--dangerously-allow-all-scripts] [--no-audit]
+Step #0: npm error [--no-bin-links] [--no-fund] [--dry-run]
+Step #0: npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+Step #0: npm error [--workspaces] [--include-workspace-root] [--install-links]
+Step #0: npm error
+Step #0: npm error   --install-strategy
+Step #0: npm error     Sets the strategy for installing packages in node_modules.
+Step #0: npm error
+Step #0: npm error   --legacy-bundling
+Step #0: npm error     Instead of hoisting package installs in `node_modules`, install packages
+Step #0: npm error
+Step #0: npm error   --global-style
+Step #0: npm error     Only install direct dependencies in the top level `node_modules`,
+Step #0: npm error
+Step #0: npm error   --omit
+Step #0: npm error     Dependency types to omit from the installation tree on disk.
+Step #0: npm error
+Step #0: npm error   --include
+Step #0: npm error     Option that allows for defining which types of dependencies to install.
+Step #0: npm error
+Step #0: npm error   --strict-peer-deps
+Step #0: npm error     If set to `true`, and `--legacy-peer-deps` is not set, then _any_
+Step #0: npm error
+Step #0: npm error   --foreground-scripts
+Step #0: npm error     Run all build scripts (ie, `preinstall`, `install`, and
+Step #0: npm error
+Step #0: npm error   --ignore-scripts
+Step #0: npm error     If true, npm does not run scripts specified in package.json files.
+Step #0: npm error
+Step #0: npm error   --allow-directory
+Step #0: npm error     Limits the ability for npm to install dependencies from directories.
+Step #0: npm error
+Step #0: npm error   --allow-file
+Step #0: npm error     Limits the ability for npm to install dependencies from tarball files.
+Step #0: npm error
+Step #0: npm error   --allow-git
+Step #0: npm error     Limits the ability for npm to fetch dependencies from git references.
+Step #0: npm error
+Step #0: npm error   --allow-remote
+Step #0: npm error     Limits the ability for npm to fetch dependencies from urls.
+Step #0: npm error
+Step #0: npm error   --allow-scripts
+Step #0: npm error     Comma-separated list of packages whose install-time lifecycle scripts
+Step #0: npm error
+Step #0: npm error   --strict-allow-scripts
+Step #0: npm error     If `true`, turn the install-script policy from a warning into a hard
+Step #0: npm error
+Step #0: npm error   --dangerously-allow-all-scripts
+Step #0: npm error     If `true`, bypass the `allowScripts` policy entirely and run every
+Step #0: npm error
+Step #0: npm error   --audit
+Step #0: npm error     When "true" submit audit reports alongside the current npm command to the
+Step #0: npm error
+Step #0: npm error   --bin-links
+Step #0: npm error     Tells npm to create symlinks (or `.cmd` shims on Windows) for package
+Step #0: npm error
+Step #0: npm error   --fund
+Step #0: npm error     When "true" displays the message at the end of each `npm install`
+Step #0: npm error
+Step #0: npm error   --dry-run
+Step #0: npm error     Indicates that you don't want npm to make any changes and that it should
+Step #0: npm error
+Step #0: npm error   -w|--workspace
+Step #0: npm error     Enable running a command in the context of the configured workspaces of the
+Step #0: npm error
+Step #0: npm error   --workspaces
+Step #0: npm error     Set to true to run the command in the context of **all** configured
+Step #0: npm error
+Step #0: npm error   --include-workspace-root
+Step #0: npm error     Include the workspace root when workspaces are enabled for a command.
+Step #0: npm error
+Step #0: npm error   --install-links
+Step #0: npm error     When set file: protocol dependencies will be packed and installed as
+Step #0: npm error
+Step #0: npm error
+Step #0: npm error aliases: clean-install, ic, install-clean, isntall-clean
+Step #0: npm error
+Step #0: npm error Run "npm help ci" for more info
+Step #0: npm notice
+Step #0: npm notice New major version of npm available! 11.19.1 -> 12.2.3
+Step #0: npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.3
+Step #0: npm notice To update run: npm install -g npm@12.2.3
+Step #0: npm notice
+Step #0: npm error A complete log of this run can be found in: /root/.npm/_logs/2026-11-23T11_22_29_649Z-
+debug-0.log
+Step #0: The command '/bin/sh -c npm ci --omit=dev --ignore-scripts --no-audit --no-fund' returned a non-
+zero code: 1
+Finished Step #0
+ERROR
+ERROR: build step 0 "gcr.io/cloud-builders/docker" failed: step exited with non-zero status: 1
+Step #0: 
+---------------------------------------------------------------------------------------------------------
+
+BUILD FAILURE: Build step failure: build step 0 "gcr.io/cloud-builders/docker" failed: step exited with n
+on-zero status: 1
+ERROR: (gcloud.builds.submit) build 5438f51b-1ecb-4d36-bd59-b161a6128b0f completed with status "FAILURE"
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'superstatic@10.0.0',
+npm warn EBADENGINE   required: { node: '20 || 22 || 24' },
+npm warn EBADENGINE   current: { node: 'v26.13.0', npm: '12.2.1' }
+npm warn EBADENGINE }
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm warn deprecated json-ptr@3.1.1: Package no longer supported. Contact Support at https://www.npmjs.com
+/support for more info.
+npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to u
+uid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 
+2028).
+npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized se
+curity vulnerabilities, which have been fixed in the current version. Please update. Support for old vers
+ions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm notice run portfolio-responsive-complete@1.0.0 npx
+npm notice run 'firebase' deploy --only hosting:ravanatek,firestore:ravanatek-db --project ravanatek
+
+=== Deploying to 'ravanatek'...
+
+i  deploying firestore, hosting
+i  firestore: ensuring required API firestore.googleapis.com is enabled...
+✔  firestore: required API firestore.googleapis.com is enabled
+i  firestore: ensuring required API firestore.googleapis.com is enabled...
+i  cloud.firestore: checking firestore.rules for compilation errors...
+✔  cloud.firestore: rules file firestore.rules compiled successfully
+i  firestore: uploading rules firestore.rules...
+i  firestore: deploying indexes...
+i  hosting[ravanatek]: beginning deploy...
+
+Error: Directory 'public-build' for Hosting does not exist.
+hello_ravanatech@cloudshell:~/RavanaTek-deploy (ravanatek)$ 
