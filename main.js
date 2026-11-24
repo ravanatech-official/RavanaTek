@@ -112,7 +112,11 @@ function switchScreen(target, updateHistory = true) {
     if (updateHistory) {
         const targetUrl = nextScreen.route;
         if (window.location.pathname !== targetUrl) {
-            window.history.pushState({ screenIndex: nextIndex, screenId: nextScreen.id }, '', targetUrl);
+            try {
+                window.history.pushState({ screenIndex: nextIndex, screenId: nextScreen.id }, '', targetUrl);
+            } catch (err) {
+                console.warn('[DECK] History pushState skipped:', err);
+            }
         }
     }
 
@@ -195,7 +199,7 @@ window.addEventListener('keydown', (e) => {
     if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
 
     const modal = document.getElementById('gallery-preview-modal');
-    if (modal && modal.classList.contains('active')) return;
+    if (modal && (modal.classList.contains('is-open') || modal.classList.contains('active'))) return;
 
     const cvEditorModal = document.getElementById('cv-real-editor-modal');
     if (cvEditorModal && cvEditorModal.classList.contains('active')) {
@@ -241,7 +245,7 @@ let isWheelTransitioning = false;
 
 window.addEventListener('wheel', (e) => {
     const modal = document.getElementById('gallery-preview-modal');
-    if (modal && modal.classList.contains('active')) return;
+    if (modal && (modal.classList.contains('is-open') || modal.classList.contains('active'))) return;
 
     const cvEditorModal = document.getElementById('cv-real-editor-modal');
     if (cvEditorModal && cvEditorModal.classList.contains('active')) return;
@@ -297,7 +301,7 @@ window.addEventListener('touchstart', (e) => {
 
 window.addEventListener('touchend', (e) => {
     const modal = document.getElementById('gallery-preview-modal');
-    if (modal && modal.classList.contains('active')) return;
+    if (modal && (modal.classList.contains('is-open') || modal.classList.contains('active'))) return;
 
     const cvEditorModal = document.getElementById('cv-real-editor-modal');
     if (cvEditorModal && cvEditorModal.classList.contains('active')) return;
@@ -343,7 +347,9 @@ const initDeckRoute = () => {
     const redirectedPath = urlParams.get('p');
     if (redirectedPath) {
         const cleanPath = '/' + redirectedPath.replace(/^[/]+/, '');
-        window.history.replaceState(null, '', cleanPath);
+        try {
+            window.history.replaceState(null, '', cleanPath);
+        } catch (err) {}
         switchScreen(cleanPath, false);
         return;
     }
@@ -406,12 +412,12 @@ if (document.readyState === 'loading') {
     let lastRenderTime = 0;
     let isRunning = false;
 
-    const FPS = 28; // Optimized cadence for silky smooth visual cyber effect with ultra-low CPU/RAM footprint
+    const FPS = 15; // Lightweight cadence for smooth cyber ambience with minimal CPU/GPU footprint
     const FRAME_INTERVAL = 1000 / FPS;
 
     // Characters: futuristic mix of cyber glyphs, binary, hex, and tech characters
     const CHARACTERS = '010101RAVANATECHｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜXYZ<>{}/*#$';
-    const FONT_SIZE = 14;
+    const FONT_SIZE = 18;
 
     function resize() {
         const parent = canvas.parentElement;
@@ -508,14 +514,23 @@ if (document.readyState === 'loading') {
         }
     });
 
+    let resizeTimer = null;
     window.addEventListener('resize', () => {
-        resize();
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(resize, 150);
     }, { passive: true });
 
     const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    resize();
-    if (!document.hidden && !prefersReducedMotion) {
-        startAnimation();
+    const bootMatrix = () => {
+        resize();
+        if (!document.hidden && !prefersReducedMotion) {
+            startAnimation();
+        }
+    };
+    if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(bootMatrix, { timeout: 300 });
+    } else {
+        setTimeout(bootMatrix, 120);
     }
 })();
 
@@ -564,7 +579,10 @@ if (document.readyState === 'loading') {
 /* ==========================================================================
    AI & AUTOMATION LAB // INTERACTIVE LOGIC & SIMULATORS
    ========================================================================== */
-(function initAiLabEngine() {
+let aiLabInitialized = false;
+function initAiLabEngine() {
+    if (aiLabInitialized) return;
+    aiLabInitialized = true;
     // 1. LAB TABS NAVIGATION
     const tabBtns = document.querySelectorAll('.lab-tab-btn');
     const panels = document.querySelectorAll('.lab-panel');
@@ -1734,5 +1752,19 @@ Contact: ${rawProfile.email} | WhatsApp: ${rawProfile.phone}`;
         });
     }
 
-})();
+}
+
+window.addEventListener('screenchange', (e) => {
+    if (e.detail && e.detail.screenId === 'ai-lab') {
+        initAiLabEngine();
+    }
+});
+
+if (window.location.pathname === '/ai-lab' || window.location.hash === '#ai-lab') {
+    initAiLabEngine();
+} else if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(initAiLabEngine, { timeout: 600 });
+} else {
+    setTimeout(initAiLabEngine, 200);
+}
 

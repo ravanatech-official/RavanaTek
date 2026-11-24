@@ -54,11 +54,11 @@
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
         <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-        <link rel="preload" href="styles.css?v=2.2.0" as="style">
-        <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" as="style">
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap">
-        <link rel="preload" as="image" href="assets/img/image_01_opt.webp" type="image/webp" fetchpriority="high">
-        <link rel="preload" as="image" href="/assets/img/ravana_tech_logo_opt.webp" type="image/webp" fetchpriority="high">
+        <link rel="preload" href="styles.css?v=2.3.0" as="style">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+        <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap"></noscript>
+        <link rel="preload" as="image" href="assets/img/image_01_mobile.webp" type="image/webp" media="(max-width: 640px)" fetchpriority="high">
+        <link rel="preload" as="image" href="assets/img/image_01_opt.webp" type="image/webp" media="(min-width: 641px)" fetchpriority="high">
 
         <!-- ===== SCHEMA.ORG STRUCTURED DATA (JSON-LD) ===== -->
         <script type="application/ld+json">
@@ -130,7 +130,7 @@
         <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/boxicons@2.0.5/css/boxicons.min.css"></noscript>
 
         <!-- ===== STYLESHEET ===== -->
-        <link rel="stylesheet" href="styles.css?v=2.2.0">
+        <link rel="stylesheet" href="styles.css?v=2.3.0">
 
         <!-- ===== FIREBASE IMPORT MAP ===== -->
         <script type="importmap">
@@ -236,6 +236,7 @@
 
                             <div class="hud-circle-image-wrap">
                                 <picture>
+                                    <source media="(max-width: 640px)" srcset="assets/img/image_01_mobile.webp" type="image/webp">
                                     <source srcset="assets/img/image_01_opt.webp" type="image/webp">
                                     <img src="assets/img/image_01_1791448896391.jpg" alt="Ravana Tech Founder Shanthapriya Silva" class="hud-circle-img" width="340" height="340" fetchpriority="high" decoding="async" onerror="this.onerror=null;this.src='image_01_1791448896391.jpg';">
                                 </picture>
@@ -1408,9 +1409,6 @@
             </div>
         </div>
 
-        <!--===== SCROLL REVEAL =====-->
-        <script src="https://unpkg.com/scrollreveal@4.0.9/dist/scrollreveal.min.js" defer crossorigin="anonymous"></script>
-
         <!--===== FIREBASE INITIALIZATION & FIRESTORE INTEGRATION =====-->
         <script type="module">
             // Import the functions you need from the SDKs you need
@@ -1471,7 +1469,11 @@
             if (contactSection && 'IntersectionObserver' in window) {
               const contactObserver = new IntersectionObserver((entries) => {
                 if (entries[0] && entries[0].isIntersecting) {
-                  getFirestoreInstance();
+                  try {
+                    getFirestoreInstance();
+                  } catch (err) {
+                    console.warn('[RAVANA TECH] Deferred Firestore pre-warm:', err);
+                  }
                   contactObserver.disconnect();
                 }
               }, { threshold: 0.1 });
@@ -1501,9 +1503,9 @@
         </script>
 
         <!--===== MAIN JS & GALLERY SCRIPTS =====-->
-        <script src="assets/js/projects-data.js?v=2.2.0" defer></script>
-        <script src="assets/js/gallery.js?v=2.2.0" defer></script>
-        <script type="module" src="assets/js/contact-form.js?v=2.2.0"></script>
-        <script src="main.js?v=2.2.0" defer></script>
+        <script src="assets/js/projects-data.js?v=2.3.0" defer></script>
+        <script src="assets/js/gallery.js?v=2.3.0" defer></script>
+        <script type="module" src="assets/js/contact-form.js?v=2.3.0"></script>
+        <script src="main.js?v=2.3.0" defer></script>
     </body>
 </html>

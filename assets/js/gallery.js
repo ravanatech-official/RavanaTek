@@ -201,7 +201,7 @@
 
             <!-- Card Visual Banner (16:10 Bento Aspect) -->
             <div class="gallery-card__visual">
-              <img src="${imageSrc}" alt="${escapeHtml(project.title)} Preview" class="gallery-card__img" loading="lazy" onerror="this.style.display='none';">
+              <img src="${imageSrc}" alt="${escapeHtml(project.title)} Preview" class="gallery-card__img" loading="lazy" decoding="async" onerror="this.style.display='none';">
               <div class="gallery-card__gradient-overlay"></div>
               
               <!-- Floating Category Tag -->

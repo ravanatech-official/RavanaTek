@@ -51,9 +51,9 @@
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
         <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-        <link rel="preload" href="styles.css" as="style">
-        <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" as="style">
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap">
+        <link rel="preload" href="styles.css?v=2.3.0" as="style">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+        <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap"></noscript>
 
         <!-- ===== SCHEMA.ORG STRUCTURED DATA (JSON-LD) ===== -->
         <script type="application/ld+json">
@@ -99,7 +99,7 @@
         <link href='https://cdn.jsdelivr.net/npm/boxicons@2.0.5/css/boxicons.min.css' rel='stylesheet'>
 
         <!-- ===== STYLESHEET ===== -->
-        <link rel="stylesheet" href="styles.css">
+        <link rel="stylesheet" href="styles.css?v=2.3.0">
 
         <!-- ===== FIREBASE IMPORT MAP ===== -->
         <script type="importmap">
@@ -119,23 +119,23 @@
         <header class="l-header" id="header" role="banner">
             <nav class="nav bd-grid" aria-label="Archive Navigation">
                 <div class="nav__brand">
-                    <a href="index.html#home" class="nav__logo" aria-label="Ravana Tech Homepage">
+                    <a href="/" class="nav__logo" aria-label="Ravana Tech Homepage">
                         RAVANA TECH
                     </a>
                 </div>
 
                 <div class="nav__menu" id="nav-menu">
                     <ul class="nav__list">
-                        <li class="nav__item"><a href="index.html#home" class="nav__link">Home</a></li>
-                        <li class="nav__item"><a href="index.html#about" class="nav__link">About</a></li>
-                        <li class="nav__item"><a href="index.html#systems" class="nav__link">Systems</a></li>
-                        <li class="nav__item"><a href="projects.html" class="nav__link active-link">Archive (50)</a></li>
-                        <li class="nav__item"><a href="index.html#contact" class="nav__link">Contact</a></li>
+                        <li class="nav__item"><a href="/" class="nav__link">Home</a></li>
+                        <li class="nav__item"><a href="/about" class="nav__link">About</a></li>
+                        <li class="nav__item"><a href="/systems" class="nav__link">Systems</a></li>
+                        <li class="nav__item"><a href="/projects" class="nav__link active-link">Archive (50)</a></li>
+                        <li class="nav__item"><a href="/contact" class="nav__link">Contact</a></li>
                     </ul>
                 </div>
 
                 <div class="archive-nav-actions">
-                    <a href="index.html" class="archive-return-link">
+                    <a href="/" class="archive-return-link">
                         <i class='bx bx-arrow-back' aria-hidden="true"></i>
                         <span>RETURN TO MAIN MATRIX</span>
                     </a>
@@ -158,7 +158,7 @@
                     <!-- Screen Breadcrumb & Header Station -->
                     <div class="archive-hero-header">
                         <div class="archive-breadcrumb">
-                            <a href="index.html"><i class='bx bx-home-alt'></i> RAVANA TECH</a>
+                            <a href="/"><i class='bx bx-home-alt'></i> RAVANA TECH</a>
                             <span class="separator">/</span>
                             <span class="current">CONCEPTUAL ARCHIVE // MATRIX ENGINE</span>
                         </div>
@@ -395,7 +395,7 @@
 
         <!--===== SCRIPTS =====-->
         <script src="assets/js/projects-data.js"></script>
-        <script src="assets/js/gallery.js"></script>
+        <script src="assets/js/gallery.js?v=2.3.0"></script>
         <script>
             // Mobile navigation toggle for dedicated screen
             const navToggle = document.getElementById('nav-toggle');

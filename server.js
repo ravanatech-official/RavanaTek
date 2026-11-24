@@ -58,19 +58,30 @@ app.use((req, res, next) => {
 
 // Silicon Valley Security Headers Middleware
 app.use((req, res, next) => {
+  const host = String(req.get('x-forwarded-host') || req.get('host') || req.hostname || '').toLowerCase();
+  const isAiStudioPreview =
+    process.env.NODE_ENV !== 'production' ||
+    host.startsWith('ais-dev-') ||
+    host.startsWith('ais-pre-');
+
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  if (!isAiStudioPreview) {
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  }
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
+  res.setHeader('Cross-Origin-Resource-Policy', isAiStudioPreview ? 'cross-origin' : 'same-site');
   res.setHeader('Timing-Allow-Origin', '*');
   if (req.secure || req.get('x-forwarded-proto') === 'https') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
+  const frameAncestors = isAiStudioPreview
+    ? "frame-ancestors 'self' https://aistudio.google.com https://*.google.com https://*.usercontent.goog"
+    : "frame-ancestors 'self'";
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://unpkg.com https://cdn.tailwindcss.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: https:; connect-src 'self' https://firestore.googleapis.com https://firebaseinstallations.googleapis.com https://www.google-analytics.com https://region1.google-analytics.com; frame-src 'self' https://maps.google.com https://www.google.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+    `default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://unpkg.com https://cdn.tailwindcss.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: https:; connect-src 'self' https://firestore.googleapis.com https://firebaseinstallations.googleapis.com https://www.google-analytics.com https://region1.google-analytics.com; frame-src 'self' https://maps.google.com https://www.google.com; ${frameAncestors}; base-uri 'self'; form-action 'self'`
   );
   next();
 });
