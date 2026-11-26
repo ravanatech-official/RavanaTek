@@ -349,8 +349,26 @@ if (contactForm && formFeedback) {
             submitBtn.innerHTML = "<i class='bx bx-check-circle'></i> Inquiry Submitted";
 
             formFeedback.className = 'form__status-msg success';
-            const recordNum = firestoreDocId ? `Reference ID: #${firestoreDocId.substring(0, 8).toUpperCase()}<br>` : '';
-            formFeedback.innerHTML = `<strong>Thank you, ${name}!</strong><br>${recordNum}Your project inquiry for <em>${system}</em> has been received. Our team will review your requirements and respond within 60 minutes.`;
+            formFeedback.textContent = '';
+
+            const strongEl = document.createElement('strong');
+            strongEl.textContent = `Thank you, ${name}!`;
+            formFeedback.appendChild(strongEl);
+            formFeedback.appendChild(document.createElement('br'));
+
+            if (firestoreDocId) {
+                const safeRef = String(firestoreDocId).replace(/[^A-Za-z0-9_-]/g, '').substring(0, 8).toUpperCase();
+                if (safeRef) {
+                    formFeedback.appendChild(document.createTextNode(`Reference ID: #${safeRef}`));
+                    formFeedback.appendChild(document.createElement('br'));
+                }
+            }
+
+            formFeedback.appendChild(document.createTextNode('Your project inquiry for '));
+            const emEl = document.createElement('em');
+            emEl.textContent = system;
+            formFeedback.appendChild(emEl);
+            formFeedback.appendChild(document.createTextNode(' has been received. Our team will review your requirements and respond within 60 minutes.'));
 
             // Prepare instant WhatsApp Handoff CTA
             const waText = encodeURIComponent(`Hello Ravana Tech! I just sent a project inquiry from your website.\n\nName: ${name}\nService: ${system}\nEmail: ${email}\n\nProject Scope:\n${message}`);
@@ -377,7 +395,11 @@ if (contactForm && formFeedback) {
             waLink.style.fontSize = '0.78rem';
             waLink.style.fontFamily = 'var(--font-hud)';
             waLink.style.textDecoration = 'none';
-            waLink.innerHTML = "<i class='bx bxl-whatsapp' style='font-size:1rem;'></i> CHAT WITH US ON WHATSAPP";
+            const waIcon = document.createElement('i');
+            waIcon.className = 'bx bxl-whatsapp';
+            waIcon.style.fontSize = '1rem';
+            waLink.appendChild(waIcon);
+            waLink.appendChild(document.createTextNode(' CHAT WITH US ON WHATSAPP'));
             actionsWrap.appendChild(waLink);
 
             formFeedback.appendChild(actionsWrap);

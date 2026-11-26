@@ -1,8 +1,12 @@
 User-agent: *
 Allow: /
+Allow: /.well-known/security.txt
 Disallow: /api/
 Disallow: /data/
 Disallow: /scripts/
 Disallow: /test/
+Disallow: /src/
+Disallow: /.git/
+Disallow: /.aistudio/
 
 Sitemap: https://ravanatek.web.app/sitemap.xml

@@ -29,6 +29,38 @@ app.use(compression({ level: 6, threshold: 256, memLevel: 8 }));
 app.use(express.json({ limit: '32kb' }));
 app.use(express.urlencoded({ extended: true, limit: '32kb' }));
 
+// Malformed / Oversized JSON Parse Error Handler (zero stack trace disclosure)
+app.use((err, _req, res, next) => {
+  if (err && (err.type === 'entity.parse.failed' || (err instanceof SyntaxError && 'body' in err))) {
+    return res.status(400).json({ success: false, error: 'Invalid JSON payload.' });
+  }
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ success: false, error: 'Request payload too large.' });
+  }
+  return next(err);
+});
+
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function isPlainObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+function hasDangerousKeys(value, depth = 0) {
+  if (depth > 5 || !value || typeof value !== 'object') return false;
+  if (Array.isArray(value)) {
+    return value.some((item) => hasDangerousKeys(item, depth + 1));
+  }
+  const keys = Object.getOwnPropertyNames(value);
+  for (const key of keys) {
+    if (DANGEROUS_KEYS.has(key)) return true;
+    if (hasDangerousKeys(value[key], depth + 1)) return true;
+  }
+  return false;
+}
+
 // Allowed CORS origins
 const DEFAULT_ORIGINS = [
   'https://ravanatek.web.app',
@@ -41,6 +73,31 @@ const allowedOrigins = new Set(
     .filter(Boolean)
     .concat(DEFAULT_ORIGINS)
 );
+
+function isOriginPermitted(origin, reqHost, isAiStudioPreview) {
+  if (allowedOrigins.has(origin)) return true;
+  try {
+    const parsed = new URL(origin);
+    const originHost = parsed.host.toLowerCase();
+    const originHostname = parsed.hostname.toLowerCase();
+    if (reqHost && originHost === reqHost) return true;
+    if (isAiStudioPreview) {
+      if (
+        originHostname === 'localhost' ||
+        originHostname === '127.0.0.1' ||
+        originHostname.startsWith('ais-dev-') ||
+        originHostname.startsWith('ais-pre-') ||
+        originHostname === 'aistudio.google.com' ||
+        originHostname.endsWith('.usercontent.goog')
+      ) {
+        return true;
+      }
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -63,32 +120,60 @@ app.use((req, res, next) => {
     process.env.NODE_ENV !== 'production' ||
     host.startsWith('ais-dev-') ||
     host.startsWith('ais-pre-');
+  const isHttps = req.secure || req.get('x-forwarded-proto') === 'https';
+
+  let decodedReqPath = req.path;
+  try {
+    decodedReqPath = decodeURIComponent(req.path);
+  } catch {
+    decodedReqPath = req.path;
+  }
+  const isConceptualDemo =
+    decodedReqPath.startsWith('/conceptual projects/') ||
+    decodedReqPath.startsWith('/conceptual-projects/');
 
   res.setHeader('X-Content-Type-Options', 'nosniff');
   if (!isAiStudioPreview) {
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   }
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  res.setHeader('X-DNS-Prefetch-Control', 'off');
+  res.setHeader('Origin-Agent-Cluster', '?1');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  res.setHeader(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), magnetometer=(), gyroscope=(), accelerometer=()'
+  );
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   res.setHeader('Cross-Origin-Resource-Policy', isAiStudioPreview ? 'cross-origin' : 'same-site');
-  res.setHeader('Timing-Allow-Origin', '*');
-  if (req.secure || req.get('x-forwarded-proto') === 'https') {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  if (isHttps) {
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   }
   const frameAncestors = isAiStudioPreview
     ? "frame-ancestors 'self' https://aistudio.google.com https://*.google.com https://*.usercontent.goog"
     : "frame-ancestors 'self'";
+
+  const scriptSrc = isConceptualDemo
+    ? "script-src 'self' 'unsafe-inline' https://www.gstatic.com https://unpkg.com https://cdn.tailwindcss.com https://www.googletagmanager.com"
+    : "script-src 'self' 'sha256-ggi9dVQEFdAqcDjQHp/SwxuPocrSA4HIBzSTKRVhAa8=' https://www.gstatic.com https://www.googletagmanager.com";
+  const connectSrc = isConceptualDemo
+    ? "connect-src 'self'"
+    : "connect-src 'self' https://firestore.googleapis.com https://firebaseinstallations.googleapis.com https://www.google-analytics.com https://region1.google-analytics.com";
+  const frameSrc = isConceptualDemo
+    ? "frame-src 'self'"
+    : "frame-src 'self' https://maps.google.com https://www.google.com";
+  const upgradeDirective = isHttps ? '; upgrade-insecure-requests' : '';
+
   res.setHeader(
     'Content-Security-Policy',
-    `default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://unpkg.com https://cdn.tailwindcss.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: https:; connect-src 'self' https://firestore.googleapis.com https://firebaseinstallations.googleapis.com https://www.google-analytics.com https://region1.google-analytics.com; frame-src 'self' https://maps.google.com https://www.google.com; ${frameAncestors}; base-uri 'self'; form-action 'self'`
+    `default-src 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: https:; ${connectSrc}; ${frameSrc}; object-src 'none'; ${frameAncestors}; base-uri 'self'; form-action 'self'${upgradeDirective}`
   );
   next();
 });
 
-// Explicit Blocklist for Private / Source / Config Paths (even via aliases or encoded traversal)
+// Explicit Blocklist for Private / Source / Config / Docs Paths (even via aliases or encoded traversal)
 const FORBIDDEN_PATH_PATTERN =
-  /(?:^|\/)(?:\.|data|src|test|scripts|node_modules|\.git|\.aistudio)(?:\/|$)|(?:^|\/)(?:server\.(?:js|ts)|package(?:-lock)?\.json|firebase-applet-config\.json|firebase-init\.js|vite\.config\.ts|tsconfig\.json|metadata\.json|firestore\.rules|firebase\.json|Dockerfile|\.dockerignore|cloudbuild\.yaml)(?:$|\/)/i;
+  /(?:^|\/)(?:\.|data|src|test|scripts|node_modules|\.git|\.aistudio|\.github)(?:\/|$)|(?:^|\/)(?:server\.(?:js|ts)|package(?:-lock)?\.json|firebase-applet-config\.json|firebase-blueprint\.json|firebase-init\.js|vite\.config\.ts|tsconfig\.json|metadata\.json|firestore\.rules|firebase\.json|DRAFT_[^/]*|security_spec\.md|walkthrough\.md|README\.md|Dockerfile|\.dockerignore|cloudbuild\.yaml)(?:$|\/)|\.rules$/i;
 
 app.use((req, res, next) => {
   let decodedPath = req.path;
@@ -133,6 +218,35 @@ const inquiryLimiter = rateLimit({
 });
 
 app.use('/api', apiLimiter);
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
+  if (req.method === 'POST') {
+    const contentType = String(req.get('content-type') || '').toLowerCase();
+    if (!contentType.startsWith('application/json') && !contentType.startsWith('application/x-www-form-urlencoded')) {
+      return res.status(415).json({ success: false, error: 'Unsupported Content-Type.' });
+    }
+
+    const origin = req.headers.origin;
+    if (origin) {
+      const reqHost = String(req.get('x-forwarded-host') || req.get('host') || '').toLowerCase();
+      const isAiStudioPreview =
+        process.env.NODE_ENV !== 'production' ||
+        reqHost.startsWith('ais-dev-') ||
+        reqHost.startsWith('ais-pre-');
+      if (!isOriginPermitted(origin, reqHost, isAiStudioPreview)) {
+        return res.status(403).json({ success: false, error: 'Origin not permitted.' });
+      }
+    }
+
+    if (!isPlainObject(req.body) || hasDangerousKeys(req.body)) {
+      return res.status(400).json({ success: false, error: 'Invalid or unsafe request payload.' });
+    }
+  }
+  return next();
+});
 
 // ==================== PERSISTENCE LAYER (LOCAL JSON + CLOUD FIRESTORE) ====================
 const DB_FILE = process.env.LEADS_DB_FILE
@@ -234,7 +348,8 @@ app.get('/api/conceptual-projects', (_req, res) => {
       })),
     });
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    logEvent('ERROR', 'conceptual_projects_list_failed', { error: error?.message || 'unknown' });
+    return res.status(500).json({ success: false, error: 'Failed to load conceptual projects.' });
   }
 });
 
@@ -256,12 +371,13 @@ app.get('/api/health', async (req, res) => {
       firestoreStatus = 'available';
     } catch (err) {
       firestoreStatus = 'unavailable';
+      logEvent('ERROR', 'firestore_health_check_failed', { error: err?.message || 'unknown' });
       return res.status(503).json({
         status: 'degraded',
         engine: 'Ravana Tech Raptor 3 Architecture',
         storageBackend: STORAGE_BACKEND,
         firestore: firestoreStatus,
-        error: err.message,
+        error: 'Cloud persistence verification unavailable.',
       });
     }
   }
@@ -279,6 +395,7 @@ app.get('/api/health', async (req, res) => {
       securityHeaders: true,
       rateLimiting: true,
       cspEnabled: true,
+      strictScriptCsp: true,
     },
     telemetry: {
       loadSpeed: '<0.20s',
@@ -320,13 +437,14 @@ app.post('/api/inquiry', inquiryLimiter, async (req, res) => {
     }
 
     const receivedAt = new Date().toISOString();
+    const rawSource = typeof source === 'string' ? stripControl(source).replace(/[^a-z0-9_:-]/gi, '_').slice(0, 64) : '';
     const leadRecord = {
       id: `LEAD-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
       name: cleanName,
       email: cleanEmail,
       service: cleanService,
       message: cleanMessage,
-      source: typeof source === 'string' && source.trim() ? source.trim().slice(0, 100) : 'website_contact_form',
+      source: rawSource || 'website_contact_form',
       ip: req.ip || 'local',
       userAgent: (req.get('user-agent') || 'browser').slice(0, 250),
       receivedAt,
@@ -419,7 +537,13 @@ app.post('/api/document-sim', (req, res) => {
     },
   };
 
-  const doc = samples[sampleId] || samples.submittal;
+  if (sampleId !== undefined && sampleId !== null && sampleId !== '') {
+    if (typeof sampleId !== 'string' || !Object.prototype.hasOwnProperty.call(samples, sampleId)) {
+      return res.status(400).json({ success: false, error: 'Invalid document sample identifier.' });
+    }
+  }
+  const resolvedId = typeof sampleId === 'string' && sampleId ? sampleId : 'submittal';
+  const doc = samples[resolvedId];
   return res.json({
     success: true,
     engine: 'Ravana Tech Cognitive OCR & EDMS Pipeline',

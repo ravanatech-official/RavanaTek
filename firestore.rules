@@ -2,46 +2,119 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // =========================================================================
-    // MULTI-SITE ISOLATION:
-    // Dedicated to named Firestore database `ravanatek-db` (configured in firebase.json).
-    // Isolated from `ai-studio-raoneai-...` (RaOne-AI) and `suvaseva-db` (RaOne-Suva-Seva).
+    // FAIL-CLOSED ZERO-TRUST BASELINE (Dedicated database: ravanatek-db)
     // =========================================================================
-
-    // Inquiries / Leads Collection (Ravana Tech):
-    // Strict field allowlist, email format validation, size limits, server timestamp,
-    // and zero public read/update/delete.
-    match /inquiries/{inquiryId} {
-      allow create: if request.resource.data.keys().hasOnly([
-                        'name', 'email', 'system', 'message',
-                        'createdAt', 'clientTimestamp', 'source', 'status'
-                    ])
-                    && request.resource.data.keys().hasAll([
-                        'name', 'email', 'message', 'createdAt', 'status'
-                    ])
-                    && request.resource.data.name is string
-                    && request.resource.data.name.size() >= 1
-                    && request.resource.data.name.size() < 200
-                    && request.resource.data.email is string
-                    && request.resource.data.email.size() >= 3
-                    && request.resource.data.email.size() < 200
-                    && request.resource.data.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
-                    && (!('system' in request.resource.data)
-                        || (request.resource.data.system is string && request.resource.data.system.size() < 200))
-                    && request.resource.data.message is string
-                    && request.resource.data.message.size() >= 1
-                    && request.resource.data.message.size() < 5000
-                    && (!('source' in request.resource.data)
-                        || (request.resource.data.source is string && request.resource.data.source.size() <= 100))
-                    && (!('clientTimestamp' in request.resource.data)
-                        || (request.resource.data.clientTimestamp is string && request.resource.data.clientTimestamp.size() <= 64))
-                    && request.resource.data.status == 'new'
-                    && request.resource.data.createdAt == request.time;
-      allow read, update, delete: if false;
-    }
-
-    // Default-deny catch-all for all unconfigured paths
     match /{document=**} {
       allow read, write: if false;
     }
+
+    // ==================== MODULAR HELPER FUNCTIONS ====================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isVerifiedAdmin() {
+      return isAuthenticated()
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string
+        && id.size() >= 1
+        && id.size() <= 128
+        && id.matches('^[A-Za-z0-9_-]+$');
+    }
+
+    function isSafeString(val, minLen, maxLen) {
+      return val is string
+        && val.size() >= minLen
+        && val.size() <= maxLen;
+    }
+
+    function isValidEmail(val) {
+      return val is string
+        && val.size() >= 5
+        && val.size() <= 200
+        && val.matches('^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$');
+    }
+
+    function isValidSource(val) {
+      return val is string
+        && val.size() >= 1
+        && val.size() <= 64
+        && val.matches('^[a-z0-9_:-]+$');
+    }
+
+    function isValidIsoTimestamp(val) {
+      return val is string
+        && val.size() >= 20
+        && val.size() <= 32
+        && val.matches('^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$');
+    }
+
+    function isValidInquiryCreate(inquiryId) {
+      return isValidId(inquiryId)
+        && incoming().keys().hasOnly([
+          'name', 'email', 'system', 'message',
+          'createdAt', 'clientTimestamp', 'source', 'status'
+        ])
+        && incoming().keys().hasAll([
+          'name', 'email', 'message', 'createdAt', 'status'
+        ])
+        && isSafeString(incoming().name, 1, 200)
+        && isValidEmail(incoming().email)
+        && (!('system' in incoming()) || isSafeString(incoming().system, 1, 200))
+        && isSafeString(incoming().message, 1, 5000)
+        && (!('source' in incoming()) || isValidSource(incoming().source))
+        && (!('clientTimestamp' in incoming()) || isValidIsoTimestamp(incoming().clientTimestamp))
+        && incoming().status == 'new'
+        && incoming().createdAt == request.time;
+    }
+
+    function isValidInquiryAdminUpdate() {
+      return incoming().keys().hasOnly([
+          'name', 'email', 'system', 'message',
+          'createdAt', 'clientTimestamp', 'source', 'status', 'updatedAt'
+        ])
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && incoming().status in ['new', 'reviewed', 'archived']
+        && (!('updatedAt' in incoming()) || incoming().updatedAt == request.time);
+    }
+
+    // ==================== ADMIN REGISTRY ====================
+    // Server/Console provisioned only; zero client-side self-escalation.
+    match /admins/{adminId} {
+      allow read: if isAuthenticated() && isValidId(adminId) && request.auth.uid == adminId;
+      allow create, update, delete: if false;
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    // ==================== CLIENT INQUIRIES ====================
+    // Public submit is strictly write-once and schema-enforced.
+    // All PII reads and triage status transitions are restricted to verified admins.
+    match /inquiries/{inquiryId} {
+      allow create: if isValidInquiryCreate(inquiryId);
+      allow read: if isVerifiedAdmin();
+      allow update: if isVerifiedAdmin() && isValidInquiryAdminUpdate();
+      allow delete: if false;
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
   }
 }
+

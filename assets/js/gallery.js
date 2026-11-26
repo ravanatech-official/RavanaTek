@@ -11,6 +11,8 @@
   let currentPage = 1;
   let currentModalIndex = -1;
   let currentDevice = 'laptop'; // 'laptop' (MacBook Pro), 'tablet' (iPad Pro), 'mobile' (iPhone 17 Pro)
+  let lastFocusedOpener = null;
+  let urlBeforeModal = null;
 
   const CATEGORY_DEFINITIONS = [
     { id: 'all', label: 'ALL CONCEPTS' },
@@ -156,14 +158,16 @@
 
     if (viewMode === 'list') {
       container.className = 'gallery-list-view';
-      container.innerHTML = visibleProjects.map((project, idx) => {
+      container.innerHTML = visibleProjects.map((project) => {
         const projectIndex = projects.findIndex(p => p.id === project.id);
         const encodedUrl = `/conceptual projects/${encodeURIComponent(project.filename)}`;
+        const safeAccent = safeCssColor(project.accentColor);
+        const safeIcon = safeBoxIcon(project.icon);
         return `
           <div class="gallery-list-row hud-panel" data-index="${projectIndex}">
             <div class="gallery-list-col-info">
-              <div class="gallery-list-icon" style="color: ${project.accentColor};">
-                <i class='bx ${project.icon || 'bx-layer'}'></i>
+              <div class="gallery-list-icon" style="color: ${safeAccent};">
+                <i class='bx ${safeIcon}'></i>
               </div>
               <div>
                 <h4 class="gallery-list-title">${escapeHtml(project.fullTitle || project.title)}</h4>
@@ -187,13 +191,15 @@
     } else {
       // Row 1 x Col 3 Bento Grid View
       container.className = 'gallery-grid-view';
-      container.innerHTML = visibleProjects.map((project, idx) => {
+      container.innerHTML = visibleProjects.map((project) => {
         const projectIndex = projects.findIndex(p => p.id === project.id);
         const encodedUrl = `/conceptual projects/${encodeURIComponent(project.filename)}`;
-        const imageSrc = project.image || 'work1.jpg';
-        
+        const imageSrc = safeImagePath(project.image);
+        const safeAccent = safeCssColor(project.accentColor);
+        const safeIcon = safeBoxIcon(project.icon);
+
         return `
-          <article class="gallery-card hud-panel" data-index="${projectIndex}" style="--project-accent: ${project.accentColor};">
+          <article class="gallery-card hud-panel" data-index="${projectIndex}" style="--project-accent: ${safeAccent};">
             <span class="hud-corner hud-corner-tl"></span>
             <span class="hud-corner hud-corner-tr"></span>
             <span class="hud-corner hud-corner-bl"></span>
@@ -201,13 +207,13 @@
 
             <!-- Card Visual Banner (16:10 Bento Aspect) -->
             <div class="gallery-card__visual">
-              <img src="${imageSrc}" alt="${escapeHtml(project.title)} Preview" class="gallery-card__img" loading="lazy" decoding="async" onerror="this.style.display='none';">
+              <img src="${imageSrc}" alt="${escapeHtml(project.title)} Preview" class="gallery-card__img" loading="lazy" decoding="async">
               <div class="gallery-card__gradient-overlay"></div>
-              
+
               <!-- Floating Category Tag -->
               <div class="gallery-card__floating-bar">
                 <div class="gallery-card__category-badge">
-                  <i class='bx ${project.icon || 'bx-layer'}'></i>
+                  <i class='bx ${safeIcon}'></i>
                   <span>${escapeHtml(project.categoryLabel)}</span>
                 </div>
                 <span class="gallery-card__index-num">#${String(projectIndex + 1).padStart(2, '0')}</span>
@@ -243,6 +249,12 @@
           </article>
         `;
       }).join('');
+
+      container.querySelectorAll('.gallery-card__img').forEach(imgEl => {
+        imgEl.addEventListener('error', () => {
+          imgEl.style.display = 'none';
+        }, { once: true });
+      });
     }
 
     // Attach click events for modals
@@ -252,7 +264,7 @@
         el.addEventListener('click', (e) => {
           e.stopPropagation();
           e.preventDefault();
-          openPreviewModal(idx);
+          openPreviewModal(idx, el);
         });
       }
     });
@@ -363,13 +375,20 @@
   }
 
   // Interactive Lightbox Modal
-  function openPreviewModal(index) {
+  function openPreviewModal(index, openerEl) {
     if (index < 0 || index >= projects.length) return;
+    const isAlreadyOpen = document.getElementById('gallery-preview-modal')?.classList.contains('is-open');
+    if (!isAlreadyOpen) {
+      lastFocusedOpener = openerEl || document.activeElement;
+      urlBeforeModal = window.location.pathname + window.location.search + (window.location.hash.startsWith('#preview=') ? '' : window.location.hash);
+    }
+
     currentModalIndex = index;
     const project = projects[index];
 
     const modal = document.getElementById('gallery-preview-modal');
-    const iframe = document.getElementById('preview-modal-iframe');
+    const iframeHost = document.querySelector('#gallery-preview-modal .preview-screen-viewport');
+    let iframe = document.getElementById('preview-modal-iframe');
     const titleEl = document.getElementById('modal-project-title');
     const categoryEl = document.getElementById('modal-project-category');
     const domainEl = document.getElementById('modal-project-domain');
@@ -387,13 +406,20 @@
     if (launchLink) launchLink.href = encodedUrl;
     if (counterEl) counterEl.textContent = `${index + 1} / ${projects.length}`;
 
-    // Show loading state
+    // Show loading state and load via fresh iframe node to avoid polluting browser history
     if (loader) loader.style.display = 'flex';
-    iframe.src = encodedUrl;
-
-    iframe.onload = () => {
+    const freshIframe = iframe.cloneNode(false);
+    freshIframe.referrerPolicy = 'no-referrer';
+    freshIframe.onload = () => {
       if (loader) loader.style.display = 'none';
     };
+    freshIframe.src = encodedUrl;
+    if (iframeHost && iframe.parentNode === iframeHost) {
+      iframeHost.replaceChild(freshIframe, iframe);
+    } else if (iframe.parentNode) {
+      iframe.parentNode.replaceChild(freshIframe, iframe);
+    }
+    iframe = freshIframe;
 
     // Set device mode (automatically default to mobile on mobile viewports)
     if (window.innerWidth <= 768 && currentDevice === 'laptop') {
@@ -405,8 +431,18 @@
     modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
 
+    ['header', 'main-content', 'deck-console-bar'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.inert = true;
+    });
+
+    const closeBtn = document.getElementById('modal-close-btn');
+    if (closeBtn && !isAlreadyOpen) {
+      requestAnimationFrame(() => closeBtn.focus({ preventScroll: true }));
+    }
+
     // Update URL hash without scroll
-    history.replaceState(null, null, `#preview=${project.id}`);
+    history.replaceState(history.state, '', `#preview=${project.id}`);
   }
 
   function closePreviewModal() {
@@ -416,14 +452,32 @@
 
     modal.classList.remove('is-open');
     modal.setAttribute('aria-hidden', 'true');
-    if (iframe) iframe.src = 'about:blank';
+    if (iframe && iframe.parentNode) {
+      const blankIframe = iframe.cloneNode(false);
+      blankIframe.removeAttribute('src');
+      iframe.parentNode.replaceChild(blankIframe, iframe);
+    }
     document.body.style.overflow = '';
     currentModalIndex = -1;
 
-    // Clean hash
+    ['header', 'main-content', 'deck-console-bar'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.inert = false;
+    });
+
+    // Restore hash/URL cleanly
     if (window.location.hash.startsWith('#preview=')) {
-      history.replaceState(null, null, window.location.pathname);
+      const restoreUrl = urlBeforeModal || window.location.pathname + window.location.search;
+      history.replaceState(history.state, '', restoreUrl);
     }
+    urlBeforeModal = null;
+
+    if (lastFocusedOpener && typeof lastFocusedOpener.focus === 'function' && document.contains(lastFocusedOpener)) {
+      try {
+        lastFocusedOpener.focus({ preventScroll: true });
+      } catch (_err) {}
+    }
+    lastFocusedOpener = null;
   }
 
   function navigateModal(direction) {
@@ -530,12 +584,15 @@
           const p = projects[currentModalIndex];
           const fullUrl = window.location.origin + `/conceptual projects/${encodeURIComponent(p.filename)}`;
           navigator.clipboard.writeText(fullUrl).then(() => {
-            const originalText = modalCopyBtn.innerHTML;
-            modalCopyBtn.innerHTML = "<i class='bx bx-check'></i> <span>COPIED!</span>";
+            const iconEl = modalCopyBtn.querySelector('i');
+            const labelEl = modalCopyBtn.querySelector('span');
+            if (iconEl) iconEl.className = 'bx bx-check';
+            if (labelEl) labelEl.textContent = 'COPIED!';
             setTimeout(() => {
-              modalCopyBtn.innerHTML = originalText;
+              if (iconEl) iconEl.className = 'bx bx-copy';
+              if (labelEl) labelEl.textContent = 'COPY URL';
             }, 1800);
-          });
+          }).catch(() => {});
         }
       });
     }
@@ -555,39 +612,37 @@
 
       if (isModalOpen) {
         if (e.key === 'Escape') {
+          e.preventDefault();
           closePreviewModal();
         } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
           navigateModal(-1);
         } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
           navigateModal(1);
         }
-      } else {
-        // Arrow navigation for batches when modal is not open
-        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
-        const projectsSec = document.getElementById('projects');
-        if (!projectsSec) return;
-        const rect = projectsSec.getBoundingClientRect();
-        // If projects section is near viewport
-        if (rect.top < window.innerHeight && rect.bottom > 0) {
-          const filtered = getFilteredProjects();
-          const itemsPerPage = viewMode === 'list' ? 5 : ITEMS_PER_PAGE;
-          const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
-          if (e.key === 'ArrowLeft' && currentPage > 1) {
-            currentPage--;
-            renderGallery();
-          } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
-            currentPage++;
-            renderGallery();
-          }
+      } else if (document.body.classList.contains('archive-screen-body')) {
+        // Arrow navigation for archive batches only on dedicated Archive page
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
+        const filtered = getFilteredProjects();
+        const itemsPerPage = viewMode === 'list' ? 5 : ITEMS_PER_PAGE;
+        const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+        if (e.key === 'ArrowLeft' && currentPage > 1) {
+          currentPage--;
+          renderGallery();
+        } else if (e.key === 'ArrowRight' && currentPage < totalPages) {
+          currentPage++;
+          renderGallery();
         }
       }
     });
   }
 
-  // Check URL hash for direct preview
+  // Check URL hash for direct preview (strict ID allowlist)
   function checkUrlHash() {
     if (window.location.hash.startsWith('#preview=')) {
       const targetId = window.location.hash.replace('#preview=', '').trim();
+      if (!/^[a-z0-9_-]{1,64}$/i.test(targetId)) return;
       const idx = projects.findIndex(p => p.id === targetId);
       if (idx !== -1) {
         setTimeout(() => openPreviewModal(idx), 350);
@@ -595,10 +650,27 @@
     }
   }
 
-  // Helper
+  // Sanitizers & Helpers
+  function safeCssColor(val) {
+    const raw = String(val ?? '').trim();
+    return /^(?:#[0-9a-f]{3,8}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)|var\(--[a-z0-9-]+\))$/i.test(raw)
+      ? raw
+      : '#00bfff';
+  }
+
+  function safeBoxIcon(val) {
+    const raw = String(val ?? '').trim();
+    return /^bx[a-z0-9-]*$/i.test(raw) ? raw : 'bx-layer';
+  }
+
+  function safeImagePath(val) {
+    const raw = String(val ?? '').trim();
+    return /^(?:assets\/img\/)?[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp)$/i.test(raw) ? raw : 'work1.jpg';
+  }
+
   function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
   }
 
   // Run on DOM ready

@@ -1,27 +1,13 @@
 /*==================== MENU SHOW / HIDE ====================*/
-const showMenu = (toggleId, navId) => {
-    const toggle = document.getElementById(toggleId),
-          nav = document.getElementById(navId);
-
-    if (toggle && nav) {
-        toggle.addEventListener('click', () => {
-            const isOpen = nav.classList.toggle('show');
-            toggle.setAttribute('aria-expanded', String(isOpen));
-            const icon = toggle.querySelector('i');
-            if (icon) {
-                icon.className = isOpen ? 'bx bx-x' : 'bx bx-menu';
-            }
-        });
-    }
+const isMobileMenuOpen = () => {
+    const navMenu = document.getElementById('nav-menu');
+    return Boolean(navMenu && navMenu.classList.contains('show'));
 };
-showMenu('nav-toggle', 'nav-menu');
 
-/*==================== REMOVE MENU ON LINK CLICK ====================*/
-const navLinks = document.querySelectorAll('.nav__link');
-
-function linkAction() {
+const closeMobileMenu = ({ restoreFocus = false } = {}) => {
     const navMenu = document.getElementById('nav-menu');
     const toggle = document.getElementById('nav-toggle');
+    const wasOpen = Boolean(navMenu && navMenu.classList.contains('show'));
     if (navMenu) {
         navMenu.classList.remove('show');
     }
@@ -29,177 +15,349 @@ function linkAction() {
         toggle.setAttribute('aria-expanded', 'false');
         const icon = toggle.querySelector('i');
         if (icon) icon.className = 'bx bx-menu';
+        if (restoreFocus && wasOpen) {
+            try {
+                toggle.focus({ preventScroll: true });
+            } catch (_err) {}
+        }
     }
-}
-navLinks.forEach(n => n.addEventListener('click', linkAction));
+};
 
-/*==================== ZERO-SCROLL DECK COMMAND ENGINE ====================*/
+const showMenu = (toggleId, navId) => {
+    const toggle = document.getElementById(toggleId);
+    const nav = document.getElementById(navId);
+
+    if (toggle && nav) {
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = nav.classList.toggle('show');
+            toggle.setAttribute('aria-expanded', String(isOpen));
+            const icon = toggle.querySelector('i');
+            if (icon) {
+                icon.className = isOpen ? 'bx bx-x' : 'bx bx-menu';
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!isMobileMenuOpen()) return;
+            if (!nav.contains(e.target) && !toggle.contains(e.target)) {
+                closeMobileMenu();
+            }
+        });
+    }
+};
+showMenu('nav-toggle', 'nav-menu');
+
+/*==================== FIVE-SCREEN CYCLIC DECK ENGINE ====================*/
 const SCREENS = [
-    { id: 'home', route: '/', label: 'HOME', title: 'RAVANA TECH | Web, Software & AI' },
-    { id: 'about', route: '/about', label: 'ABOUT', title: 'ABOUT // RAVANA TECH | Web, Software & AI' },
-    { id: 'systems', route: '/systems', label: 'SYSTEMS', title: 'SERVICES // RAVANA TECH | Web, Software & AI' },
-    { id: 'projects', route: '/projects', label: 'PROJECTS', title: 'PROJECTS // RAVANA TECH | Web, Software & AI' },
-    { id: 'contact', route: '/contact', label: 'CONTACT', title: 'CONTACT // RAVANA TECH | Web, Software & AI' },
-    { id: 'ai-lab', route: '/ai-lab', label: 'AI LAB', title: 'AI & AUTOMATION LAB // RAVANA TECH | Shanthapriya Silva' }
+    { id: 'home', route: '/', label: 'Home', title: 'RAVANA TECH | Web, Software & AI' },
+    { id: 'about', route: '/about', label: 'About', title: 'ABOUT // RAVANA TECH | Web, Software & AI' },
+    { id: 'systems', route: '/systems', label: 'Services', title: 'SERVICES // RAVANA TECH | Web Development Studio' },
+    { id: 'projects', route: '/#projects', label: 'Projects', title: 'PROJECTS // RAVANA TECH | Web, Software & AI' },
+    { id: 'contact', route: '/contact', label: 'Contact', title: 'START YOUR PROJECT // RAVANA TECH' },
+    { id: 'ai-lab', route: '/ai-lab', label: 'AI Lab', title: 'AI & AUTOMATION LAB // RAVANA TECH | Shanthapriya Silva' }
 ];
+const MAIN_SCREEN_COUNT = 5;
 
 let currentScreenIndex = 0;
 let isSwitching = false;
+let switchUnlockTimer = null;
+
+const prefersReducedMotion = () =>
+    Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+function isAnyModalOpen() {
+    const galleryModal = document.getElementById('gallery-preview-modal');
+    if (galleryModal && (galleryModal.classList.contains('is-open') || galleryModal.classList.contains('active'))) {
+        return true;
+    }
+    const cvEditorModal = document.getElementById('cv-real-editor-modal');
+    if (cvEditorModal && cvEditorModal.classList.contains('active')) {
+        return true;
+    }
+    const openDialog = document.querySelector('dialog[open]');
+    return Boolean(openDialog);
+}
 
 function getScreenIndex(target) {
-    if (typeof target === 'number') {
+    if (typeof target === 'number' && !Number.isNaN(target)) {
         return Math.max(0, Math.min(SCREENS.length - 1, target));
     }
-    const clean = String(target || '').toLowerCase().replace(/^[/#]+|[/#]+$/g, '').trim();
+    const raw = String(target || '').toLowerCase().trim();
+    if (!raw || raw === '/' || raw === '/home' || raw === '#home' || raw === 'home') return 0;
+
+    const clean = raw
+        .replace(/^\/?#/, '')
+        .replace(/^\/+|\/+$/g, '')
+        .trim();
+
     if (!clean || clean === 'home') return 0;
-    const found = SCREENS.findIndex(s => s.id === clean || s.route === `/${clean}`);
+    if (clean === 'about') return 1;
+    if (clean === 'systems') return 2;
+    if (clean === 'projects') return 3;
+    if (clean === 'contact') return 4;
+    if (['ai-lab', 'automation', 'lab', 'experience'].includes(clean)) return 5;
+
+    const found = SCREENS.findIndex((s) => s.id === clean || s.route === `/${clean}`);
     return found !== -1 ? found : 0;
 }
 
-function switchScreen(target, updateHistory = true) {
+function currentUrlMatchesRoute(route) {
+    const curPath = window.location.pathname || '/';
+    const curHash = window.location.hash || '';
+    if (route === '/#projects') {
+        return curPath === '/' && curHash === '#projects';
+    }
+    if (route === '/') {
+        return (curPath === '/' || curPath === '/home') && !curHash;
+    }
+    return curPath === route && !curHash;
+}
+
+function announceScreen(screen, index) {
+    const live = document.getElementById('deck-live-region');
+    if (!live) return;
+    live.textContent = '';
+    requestAnimationFrame(() => {
+        if (index < MAIN_SCREEN_COUNT) {
+            live.textContent = `${screen.label}, screen ${index + 1} of ${MAIN_SCREEN_COUNT}`;
+        } else {
+            live.textContent = `${screen.label}`;
+        }
+    });
+}
+
+function switchScreen(target, updateHistory = true, options = {}) {
+    const { direction = null, announce = true, force = false, replaceHistory = false } = options;
     const nextIndex = getScreenIndex(target);
     const screens = document.querySelectorAll('.deck-screen');
     if (!screens.length) return;
+    if (isSwitching && !force) return;
+
+    const prevIndex = currentScreenIndex;
+    if (prevIndex === nextIndex && !force) {
+        closeMobileMenu();
+        return;
+    }
+
+    const nextScreen = SCREENS[nextIndex];
+    const mainEl = document.getElementById('main-content');
+    const resolvedDir = direction || (nextIndex > prevIndex ? 'next' : 'prev');
+
+    if (mainEl) {
+        mainEl.setAttribute('data-deck-dir', resolvedDir);
+    }
+
+    clearTimeout(switchUnlockTimer);
+    if (prevIndex !== nextIndex && !prefersReducedMotion()) {
+        isSwitching = true;
+        switchUnlockTimer = setTimeout(() => {
+            isSwitching = false;
+        }, 250);
+    } else {
+        isSwitching = false;
+    }
 
     currentScreenIndex = nextIndex;
-    const nextScreen = SCREENS[nextIndex];
 
-    // 1. Activate Target Deck Screen strictly by matching ID
+    // 1. Activate target deck screen and isolate inactive screens from Tab order & AT
     screens.forEach((screen) => {
         if (screen.id === nextScreen.id) {
             screen.classList.add('deck-screen-active');
+            screen.inert = false;
+            screen.removeAttribute('aria-hidden');
             screen.scrollTop = 0;
         } else {
             screen.classList.remove('deck-screen-active');
+            screen.inert = true;
+            screen.setAttribute('aria-hidden', 'true');
         }
     });
 
-    // 2. Update Header Navigation Links
-    const navLinks = document.querySelectorAll('.nav__link');
-    navLinks.forEach(link => {
+    // 2. Sync Header Navigation Links
+    document.querySelectorAll('.nav__link').forEach((link) => {
         const targetAttr = link.getAttribute('data-target') || link.getAttribute('href');
-        if (getScreenIndex(targetAttr) === nextIndex) {
-            link.classList.add('active-link');
+        const matches = getScreenIndex(targetAttr) === nextIndex;
+        link.classList.toggle('active-link', matches);
+        if (matches) {
+            link.setAttribute('aria-current', 'page');
         } else {
-            link.classList.remove('active-link');
+            link.removeAttribute('aria-current');
         }
     });
 
-    // 3. Update Deck Console Pills
-    const pills = document.querySelectorAll('.deck-pill');
-    pills.forEach((pill, idx) => {
-        if (idx === nextIndex) {
-            pill.classList.add('active');
-            pill.setAttribute('aria-selected', 'true');
+    // 3. Sync Footer Dots, Pills & Step Counter
+    document.querySelectorAll('.deck-dot, .deck-pill').forEach((dot) => {
+        const idxAttr = dot.getAttribute('data-screen-index');
+        const dotIdx = idxAttr !== null ? parseInt(idxAttr, 10) : getScreenIndex(dot.getAttribute('data-target'));
+        const isCurrent = dotIdx === nextIndex;
+        dot.classList.toggle('active', isCurrent);
+        dot.setAttribute('aria-selected', String(isCurrent));
+        if (isCurrent) {
+            dot.setAttribute('aria-current', 'step');
         } else {
-            pill.classList.remove('active');
-            pill.setAttribute('aria-selected', 'false');
+            dot.removeAttribute('aria-current');
         }
     });
 
-    // 4. Update Prev / Next Buttons State (Linear Deck strictly ends at Contact index 4)
+    const stepCounter = document.getElementById('deck-step-counter');
+    if (stepCounter) {
+        stepCounter.textContent = nextIndex < MAIN_SCREEN_COUNT ? `${nextIndex + 1} / ${MAIN_SCREEN_COUNT}` : 'LAB';
+    }
+
+    // 4. Prev / Next controls stay enabled for the 5-screen cyclic loop
     const prevBtn = document.getElementById('deck-prev-btn');
     const nextBtn = document.getElementById('deck-next-btn');
     if (nextScreen.id === 'ai-lab') {
         if (prevBtn) prevBtn.disabled = false;
-        if (nextBtn) nextBtn.disabled = true; // AI Lab is a dedicated terminal
+        if (nextBtn) nextBtn.disabled = true;
     } else {
-        if (prevBtn) prevBtn.disabled = nextIndex === 0;
-        if (nextBtn) nextBtn.disabled = nextIndex >= 4; // Contact (4) is the end of linear portfolio
+        if (prevBtn) prevBtn.disabled = false;
+        if (nextBtn) nextBtn.disabled = false;
     }
 
-    // 5. Update Browser URL and History
+    // 5. Update Browser URL and History cleanly
     if (updateHistory) {
         const targetUrl = nextScreen.route;
-        if (window.location.pathname !== targetUrl) {
+        if (!currentUrlMatchesRoute(targetUrl) || replaceHistory) {
             try {
-                window.history.pushState({ screenIndex: nextIndex, screenId: nextScreen.id }, '', targetUrl);
+                const state = { screenIndex: nextIndex, screenId: nextScreen.id };
+                if (replaceHistory) {
+                    window.history.replaceState(state, '', targetUrl);
+                } else {
+                    window.history.pushState(state, '', targetUrl);
+                }
             } catch (err) {
-                console.warn('[DECK] History pushState skipped:', err);
+                console.warn('[DECK] History update skipped:', err);
             }
         }
     }
 
-    // 6. Update Document Title
+    // 6. Update Document Title & Announce to Assistive Tech
     document.title = nextScreen.title;
+    if (announce) {
+        announceScreen(nextScreen, nextIndex);
+    }
 
-    // 7. Dispatch Screen Change Event for Subsystem Memory Optimization
+    // 7. Notify Subsystems (e.g. Matrix canvas / lazy modules)
     window.dispatchEvent(new CustomEvent('screenchange', { detail: { screenId: nextScreen.id, index: nextIndex } }));
 
     // 8. Close Mobile Menu if open
-    const navMenu = document.getElementById('nav-menu');
-    const navToggle = document.getElementById('nav-toggle');
-    if (navMenu && navMenu.classList.contains('show')) {
-        navMenu.classList.remove('show');
-        if (navToggle) {
-            const icon = navToggle.querySelector('i');
-            if (icon) icon.className = 'bx bx-menu';
-        }
-    }
+    closeMobileMenu();
 }
 
-// Global Click Delegation for navigation triggers
+function stepScreen(delta) {
+    if (currentScreenIndex >= MAIN_SCREEN_COUNT) return;
+    const nextIndex = ((currentScreenIndex + delta) % MAIN_SCREEN_COUNT + MAIN_SCREEN_COUNT) % MAIN_SCREEN_COUNT;
+    switchScreen(nextIndex, true, {
+        direction: delta > 0 ? 'next' : 'prev',
+        announce: true,
+        force: true
+    });
+}
+
+// Unified Click Delegation for SPA Deck Navigation (Preserves external routes like /projects, /services, legal)
 document.addEventListener('click', (e) => {
-    // Explicit direct interception for AI LAB to guarantee 100% instant execution
+    const externalTrigger = e.target.closest('[data-external-route="true"]');
+    if (externalTrigger) return;
+
     const aiLabTrigger = e.target.closest('#nav-link-ai-lab, [data-target="ai-lab"]');
     if (aiLabTrigger) {
         e.preventDefault();
-        switchScreen('ai-lab', true);
+        switchScreen('ai-lab', true, { force: true });
         return;
     }
 
-    // Direct Return from AI LAB back to Main Portfolio
     const returnTrigger = e.target.closest('#btn-lab-back-portfolio');
     if (returnTrigger) {
         e.preventDefault();
-        switchScreen('contact', true);
+        switchScreen('contact', true, { force: true });
         return;
     }
 
-    const trigger = e.target.closest('[data-target], .deck-pill, .nav__link');
+    const trigger = e.target.closest('[data-target], .deck-dot, .deck-pill, .nav__link');
     if (!trigger) return;
 
     if (trigger.getAttribute('target') === '_blank') return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
     const href = trigger.getAttribute('href');
     if (href && (href.startsWith('http') || href.startsWith('mailto:') || href.startsWith('tel:') || href.includes('.html'))) return;
 
     const targetVal = trigger.getAttribute('data-target') || trigger.getAttribute('data-screen') || href;
     if (targetVal) {
         e.preventDefault();
-        switchScreen(targetVal, true);
+        const nextIdx = getScreenIndex(targetVal);
+        const dir = nextIdx >= currentScreenIndex ? 'next' : 'prev';
+        switchScreen(nextIdx, true, { direction: dir, force: true });
     }
 });
 
-// Deck Prev / Next Button Listeners
+// Footer Prev / Next Controls (Cyclic across all 5 main screens)
 const prevBtn = document.getElementById('deck-prev-btn');
 const nextBtn = document.getElementById('deck-next-btn');
 if (prevBtn) {
     prevBtn.addEventListener('click', () => {
-        if (currentScreenIndex > 0) switchScreen(currentScreenIndex - 1, true);
+        if (currentScreenIndex === 5) {
+            switchScreen('contact', true, { direction: 'prev', force: true });
+        } else {
+            stepScreen(-1);
+        }
     });
 }
 if (nextBtn) {
     nextBtn.addEventListener('click', () => {
-        if (currentScreenIndex < SCREENS.length - 1) switchScreen(currentScreenIndex + 1, true);
+        if (currentScreenIndex < MAIN_SCREEN_COUNT) {
+            stepScreen(1);
+        }
     });
 }
 
-// Browser Back / Forward Support
+// Browser Back / Forward & Hash Restoration
+function restoreScreenFromLocation() {
+    if (window.location.hash && window.location.hash.startsWith('#preview=')) {
+        switchScreen('projects', false, { announce: false, force: true });
+        return;
+    }
+    const target = window.location.hash || window.location.pathname;
+    switchScreen(target, false, { announce: true, force: true });
+}
+
 window.addEventListener('popstate', (e) => {
     if (e.state && typeof e.state.screenIndex === 'number') {
-        switchScreen(e.state.screenIndex, false);
+        switchScreen(e.state.screenIndex, false, { announce: true, force: true });
     } else {
-        switchScreen(window.location.pathname, false);
+        restoreScreenFromLocation();
     }
 });
 
-// Keyboard Hotkey Navigation (1-5 for portfolio screens, AI Lab strictly standalone)
-window.addEventListener('keydown', (e) => {
-    const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
-    if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
+window.addEventListener('hashchange', () => {
+    if (window.location.hash && !window.location.hash.startsWith('#preview=')) {
+        restoreScreenFromLocation();
+    }
+});
 
-    const modal = document.getElementById('gallery-preview-modal');
-    if (modal && (modal.classList.contains('is-open') || modal.classList.contains('active'))) return;
+// Keyboard Navigation
+function isInteractiveOrEditableElement(el) {
+    if (!el || el === document.body || el === document.documentElement) return false;
+    return Boolean(
+        el.closest('input, textarea, select, option, button, a[href], [role="button"], [role="tab"], [role="slider"], [contenteditable="true"]')
+    );
+}
+
+window.addEventListener('keydown', (e) => {
+    // Allow Escape to close open mobile menu cleanly
+    if (e.key === 'Escape' && isMobileMenuOpen()) {
+        e.preventDefault();
+        closeMobileMenu({ restoreFocus: true });
+        return;
+    }
+
+    // Do not intercept browser shortcuts like Alt+Left / Cmd+Left
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+
+    // Ignore deck navigation while menu or any modal is open
+    if (isMobileMenuOpen()) return;
 
     const cvEditorModal = document.getElementById('cv-real-editor-modal');
     if (cvEditorModal && cvEditorModal.classList.contains('active')) {
@@ -210,151 +368,306 @@ window.addEventListener('keydown', (e) => {
         return;
     }
 
-    const activeScreenEl = document.querySelector('.deck-screen.deck-screen-active');
-    const isAiLabActive = activeScreenEl && activeScreenEl.id === 'ai-lab';
+    if (isAnyModalOpen()) return;
 
-    if (isAiLabActive) {
-        // Inside AI Lab, Escape returns to Contact screen
+    const activeEl = document.activeElement;
+    if (activeEl && ['input', 'textarea', 'select'].includes(activeEl.tagName.toLowerCase())) return;
+
+    const activeScreenEl = document.querySelector('.deck-screen.deck-screen-active');
+    if (activeScreenEl && activeScreenEl.id === 'ai-lab') {
         if (e.key === 'Escape') {
             e.preventDefault();
-            switchScreen('contact', true);
+            switchScreen('contact', true, { direction: 'prev', force: true });
         }
-        return; // Left/Right arrows do NOT throw user out of AI Lab
+        return;
     }
 
-    if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        if (isInteractiveOrEditableElement(activeEl)) return;
         e.preventDefault();
-        // Strictly stop at Contact (index 4). Never scroll or step into AI Lab!
-        if (currentScreenIndex < 4) switchScreen(currentScreenIndex + 1, true);
-    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        stepScreen(e.key === 'ArrowRight' ? 1 : -1);
+    } else if (e.key === 'PageDown' || e.key === 'PageUp') {
+        if (isInteractiveOrEditableElement(activeEl)) return;
         e.preventDefault();
-        if (currentScreenIndex > 0 && currentScreenIndex <= 4) switchScreen(currentScreenIndex - 1, true);
-    } else if (['1', '2', '3', '4', '5'].includes(e.key)) {
+        stepScreen(e.key === 'PageDown' ? 1 : -1);
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (isInteractiveOrEditableElement(activeEl)) return;
+        if (activeScreenEl && activeScreenEl.scrollHeight <= activeScreenEl.clientHeight + 4) {
+            e.preventDefault();
+            stepScreen(e.key === 'ArrowDown' ? 1 : -1);
+        }
+    } else if (['1', '2', '3', '4', '5'].includes(e.key) && !isInteractiveOrEditableElement(activeEl)) {
         e.preventDefault();
-        switchScreen(parseInt(e.key, 10) - 1, true);
-    } else if (e.key === '6' || e.key.toLowerCase() === 'l') {
-        e.preventDefault();
-        switchScreen('ai-lab', true);
+        const targetIdx = parseInt(e.key, 10) - 1;
+        switchScreen(targetIdx, true, { direction: targetIdx >= currentScreenIndex ? 'next' : 'prev', force: true });
     }
 });
 
-// Responsive & Fluid Mouse Wheel Navigation (Zero scrolling into AI Lab; stops at Contact)
-let accumulatedWheelDelta = 0;
-let wheelResetTimer = null;
-let isWheelTransitioning = false;
+// Unified Deck Gesture & Wheel Engine (1 scroll = 1 screen, 5 scrolls = 5 screens; preserves inner scroll, pinch zoom, modals & inputs)
+(function initDeckScrollAndSwipeEngine() {
+    const EXCLUDED_GESTURE_SELECTOR =
+        'input, textarea, select, option, [contenteditable="true"], dialog, [role="dialog"], .gallery-preview-modal, .cv-editor-modal, iframe, .doc-scanner-viewport, .mdr-table-responsive, [data-no-deck-swipe]';
+    const EXCLUDED_WHEEL_SELECTOR =
+        'textarea, select, option, [contenteditable="true"], dialog, [role="dialog"], .gallery-preview-modal, .cv-editor-modal, iframe, .doc-scanner-viewport, .mdr-table-responsive, [data-no-deck-swipe]';
 
-window.addEventListener('wheel', (e) => {
-    const modal = document.getElementById('gallery-preview-modal');
-    if (modal && (modal.classList.contains('is-open') || modal.classList.contains('active'))) return;
+    let gesture = null;
+    const activePointers = new Set();
 
-    const cvEditorModal = document.getElementById('cv-real-editor-modal');
-    if (cvEditorModal && cvEditorModal.classList.contains('active')) return;
+    let wheelCooldownUntil = 0;
+    let lastWheelTs = 0;
+    let lastWheelDeltaAbs = 0;
+    let lastWheelDir = 0;
+    let wheelAccum = 0;
 
-    const activeScreenEl = document.querySelector('.deck-screen.deck-screen-active');
-    if (!activeScreenEl) return;
-
-    // IF INSIDE AI-LAB: Never switch screens on mouse wheel! Scroll its own content smoothly.
-    if (activeScreenEl.id === 'ai-lab') return;
-
-    const scrollableHeight = activeScreenEl.scrollHeight - activeScreenEl.clientHeight;
-    const hasScroll = scrollableHeight > 10;
-    const atTop = !hasScroll || activeScreenEl.scrollTop <= 8;
-    const atBottom = !hasScroll || activeScreenEl.scrollTop >= (scrollableHeight - 14);
-
-    accumulatedWheelDelta += e.deltaY;
-    clearTimeout(wheelResetTimer);
-    wheelResetTimer = setTimeout(() => {
-        accumulatedWheelDelta = 0;
-    }, 180);
-
-    if (isWheelTransitioning || isSwitching) return;
-
-    // Downward scroll / Next Screen
-    if (accumulatedWheelDelta > 28 && atBottom) {
-        if (currentScreenIndex < 4) {
-            isWheelTransitioning = true;
-            accumulatedWheelDelta = 0;
-            switchScreen(currentScreenIndex + 1, true);
-            setTimeout(() => { isWheelTransitioning = false; }, 420);
-        }
-    } 
-    // Upward scroll / Previous Screen
-    else if (accumulatedWheelDelta < -28 && atTop) {
-        if (currentScreenIndex > 0 && currentScreenIndex <= 4) {
-            isWheelTransitioning = true;
-            accumulatedWheelDelta = 0;
-            switchScreen(currentScreenIndex - 1, true);
-            setTimeout(() => { isWheelTransitioning = false; }, 420);
-        }
+    function getActiveDeckScreen() {
+        return document.querySelector('.deck-screen.deck-screen-active');
     }
-}, { passive: true });
 
-// Mobile Touch Swipe Navigation (Supports both swipe up/down and swipe left/right; stops at Contact)
-let touchStartX = 0;
-let touchStartY = 0;
-window.addEventListener('touchstart', (e) => {
-    if (e.touches && e.touches.length) {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
+    function isPinchZoomed() {
+        return Boolean(window.visualViewport && window.visualViewport.scale > 1.05);
     }
-}, { passive: true });
 
-window.addEventListener('touchend', (e) => {
-    const modal = document.getElementById('gallery-preview-modal');
-    if (modal && (modal.classList.contains('is-open') || modal.classList.contains('active'))) return;
+    function shouldIgnoreGestureStart(target, selector = EXCLUDED_GESTURE_SELECTOR) {
+        if (isMobileMenuOpen() || isAnyModalOpen()) return true;
+        if (currentScreenIndex >= MAIN_SCREEN_COUNT) return true; // Keep AI Lab outside deck scroll/swipe cycle
+        if (isSwitching) return true;
+        if (target && typeof target.closest === 'function' && target.closest(selector)) {
+            return true;
+        }
+        return false;
+    }
 
-    const cvEditorModal = document.getElementById('cv-real-editor-modal');
-    if (cvEditorModal && cvEditorModal.classList.contains('active')) return;
+    function getScrollBoundaryState(screenEl, dir) {
+        if (!screenEl) return { hasOverflow: false, atBoundary: true };
+        const hasOverflow = screenEl.scrollHeight > screenEl.clientHeight + 4;
+        if (!hasOverflow) return { hasOverflow: false, atBoundary: true };
+        if (dir > 0) {
+            return {
+                hasOverflow: true,
+                atBoundary: screenEl.scrollTop + screenEl.clientHeight >= screenEl.scrollHeight - 4
+            };
+        }
+        return {
+            hasOverflow: true,
+            atBoundary: screenEl.scrollTop <= 4
+        };
+    }
 
-    const activeScreenEl = document.querySelector('.deck-screen.deck-screen-active');
-    if (!activeScreenEl || activeScreenEl.id === 'ai-lab') return;
-
-    if (e.changedTouches && e.changedTouches.length) {
-        const diffX = e.changedTouches[0].clientX - touchStartX;
-        const diffY = e.changedTouches[0].clientY - touchStartY;
+    function commitTouchGesture(finished, endX, endY) {
+        const diffX = endX - finished.startX;
+        const diffY = endY - finished.startY;
         const absX = Math.abs(diffX);
         const absY = Math.abs(diffY);
 
-        const scrollableHeight = activeScreenEl.scrollHeight - activeScreenEl.clientHeight;
-        const hasScroll = scrollableHeight > 10;
-        const atTop = !hasScroll || activeScreenEl.scrollTop <= 8;
-        const atBottom = !hasScroll || activeScreenEl.scrollTop >= (scrollableHeight - 14);
-
-        if (isSwitching || isWheelTransitioning) return;
-
-        // Horizontal swipe (left = next, right = prev)
-        if (absX > 45 && absX > absY * 1.2) {
-            if (diffX < 0 && currentScreenIndex < 4) {
-                switchScreen(currentScreenIndex + 1, true);
-            } else if (diffX > 0 && currentScreenIndex > 0 && currentScreenIndex <= 4) {
-                switchScreen(currentScreenIndex - 1, true);
-            }
+        // 1. Deliberate horizontal swipe (Left = next, Right = prev)
+        if (absX >= 52 && absX > absY * 1.4) {
+            stepScreen(diffX < 0 ? 1 : -1);
+            return;
         }
-        // Vertical swipe (swipe up = scroll down / next, swipe down = scroll up / prev)
-        else if (absY > 45 && absY > absX * 1.2) {
-            if (diffY < 0 && atBottom && currentScreenIndex < 4) {
-                switchScreen(currentScreenIndex + 1, true);
-            } else if (diffY > 0 && atTop && currentScreenIndex > 0 && currentScreenIndex <= 4) {
-                switchScreen(currentScreenIndex - 1, true);
+
+        // 2. Deliberate vertical scroll-swipe (Up = next, Down = prev) when not zooming or inner-scrolling
+        if (absY >= 64 && absY > absX * 1.4 && !isPinchZoomed()) {
+            // Preserve browser pull-to-refresh at top edge
+            if (diffY > 0 && finished.startY < 80) return;
+            const activeScreen = getActiveDeckScreen();
+            const currentScrollTop = activeScreen ? activeScreen.scrollTop : 0;
+            if (Math.abs(currentScrollTop - finished.startScrollTop) > 4) return;
+            const dir = diffY < 0 ? 1 : -1;
+            const { atBoundary } = getScrollBoundaryState(activeScreen, dir);
+            if (atBoundary) {
+                stepScreen(dir);
             }
         }
     }
-}, { passive: true });
 
-// Initialize initial screen based on URL on load
+    // Desktop Mouse Wheel & Trackpad: 1 deliberate scroll = 1 screen (5 scrolls = full 5-screen cycle)
+    window.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || e.metaKey || isPinchZoomed()) return;
+        if (isMobileMenuOpen() || isAnyModalOpen()) return;
+        if (currentScreenIndex >= MAIN_SCREEN_COUNT) return;
+        if (e.target && typeof e.target.closest === 'function' && e.target.closest(EXCLUDED_WHEEL_SELECTOR)) {
+            return;
+        }
+
+        const unitScale = e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? 600 : 1;
+        const rawDelta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        const primaryDelta = rawDelta * unitScale;
+        const absDelta = Math.abs(primaryDelta);
+        if (absDelta < 4) return;
+
+        const dir = primaryDelta > 0 ? 1 : -1;
+        const activeScreen = getActiveDeckScreen();
+        const { hasOverflow, atBoundary } = getScrollBoundaryState(activeScreen, dir);
+
+        // On short viewports / 200% zoom, allow scrolling inside the active screen until its boundary
+        if (hasOverflow && !atBoundary) {
+            return;
+        }
+
+        e.preventDefault();
+
+        const now = performance.now();
+        if (isSwitching || now < wheelCooldownUntil) {
+            // Absorb continuous trackpad inertia tail so 1 flick never jumps multiple screens
+            const isContinuousStream = now - lastWheelTs < 85;
+            if (isContinuousStream && absDelta <= lastWheelDeltaAbs + 15 && absDelta < 75) {
+                wheelCooldownUntil = Math.max(wheelCooldownUntil, now + 130);
+            }
+            lastWheelTs = now;
+            lastWheelDeltaAbs = absDelta;
+            return;
+        }
+
+        if (now - lastWheelTs > 180 || dir !== lastWheelDir) {
+            wheelAccum = 0;
+        }
+
+        wheelAccum += absDelta;
+        lastWheelTs = now;
+        lastWheelDeltaAbs = absDelta;
+        lastWheelDir = dir;
+
+        if (wheelAccum >= 20) {
+            wheelAccum = 0;
+            wheelCooldownUntil = now + 260;
+            stepScreen(dir);
+        }
+    }, { passive: false });
+
+    // Pointer Events primary path for touch & pen (ignores mouse so desktop text selection stays crisp)
+    window.addEventListener('pointerdown', (e) => {
+        if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+        activePointers.add(e.pointerId);
+
+        if (activePointers.size > 1) {
+            if (gesture) gesture.cancelled = true;
+            return;
+        }
+        if (shouldIgnoreGestureStart(e.target)) {
+            gesture = null;
+            return;
+        }
+        const activeScreen = getActiveDeckScreen();
+        gesture = {
+            source: 'pointer',
+            id: e.pointerId,
+            startX: e.clientX,
+            startY: e.clientY,
+            lastX: e.clientX,
+            lastY: e.clientY,
+            startScrollTop: activeScreen ? activeScreen.scrollTop : 0,
+            cancelled: false
+        };
+    }, { passive: true });
+
+    window.addEventListener('pointermove', (e) => {
+        if (!gesture || gesture.source !== 'pointer' || e.pointerId !== gesture.id) return;
+        gesture.lastX = e.clientX;
+        gesture.lastY = e.clientY;
+    }, { passive: true });
+
+    window.addEventListener('pointerup', (e) => {
+        activePointers.delete(e.pointerId);
+        if (!gesture || gesture.source !== 'pointer' || e.pointerId !== gesture.id) return;
+        const finished = gesture;
+        gesture = null;
+        if (!finished.cancelled && !isMobileMenuOpen() && !isAnyModalOpen() && currentScreenIndex < MAIN_SCREEN_COUNT) {
+            commitTouchGesture(finished, e.clientX, e.clientY);
+        }
+    }, { passive: true });
+
+    window.addEventListener('pointercancel', (e) => {
+        activePointers.delete(e.pointerId);
+        if (gesture && gesture.source === 'pointer' && e.pointerId === gesture.id) {
+            gesture = null;
+        }
+    }, { passive: true });
+
+    // Touch Events fallback when synthetic TouchEvent is dispatched without PointerEvents
+    window.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches.length > 1) {
+            if (gesture) gesture.cancelled = true;
+            return;
+        }
+        if (gesture && gesture.source === 'pointer') return;
+        if (shouldIgnoreGestureStart(e.target)) {
+            gesture = null;
+            return;
+        }
+        const t = e.touches && e.touches[0];
+        if (!t) return;
+        const activeScreen = getActiveDeckScreen();
+        gesture = {
+            source: 'touch',
+            id: t.identifier,
+            startX: t.clientX,
+            startY: t.clientY,
+            lastX: t.clientX,
+            lastY: t.clientY,
+            startScrollTop: activeScreen ? activeScreen.scrollTop : 0,
+            cancelled: false
+        };
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches.length > 1) {
+            if (gesture) gesture.cancelled = true;
+            return;
+        }
+        if (!gesture || gesture.source !== 'touch') return;
+        const t = Array.from(e.touches).find((item) => item.identifier === gesture.id) || e.touches[0];
+        if (!t) return;
+        gesture.lastX = t.clientX;
+        gesture.lastY = t.clientY;
+    }, { passive: true });
+
+    window.addEventListener('touchend', (e) => {
+        if (!gesture || gesture.source !== 'touch') return;
+        const t = Array.from(e.changedTouches || []).find((item) => item.identifier === gesture.id) || e.changedTouches?.[0];
+        const finished = gesture;
+        gesture = null;
+        if (!t || finished.cancelled || isMobileMenuOpen() || isAnyModalOpen() || currentScreenIndex >= MAIN_SCREEN_COUNT) return;
+        commitTouchGesture(finished, t.clientX, t.clientY);
+    }, { passive: true });
+
+    window.addEventListener('touchcancel', () => {
+        if (gesture && gesture.source === 'touch') {
+            gesture = null;
+        }
+    }, { passive: true });
+})();
+
+// Keep focused contact form control reachable when software keyboard shrinks viewport height
+document.addEventListener('focusin', (e) => {
+    const contactScreen = document.getElementById('contact');
+    if (!contactScreen || !contactScreen.classList.contains('deck-screen-active')) return;
+    const field = e.target && e.target.closest && e.target.closest('#contact-form input, #contact-form select, #contact-form textarea, #contact-form button[type="submit"]');
+    if (!field) return;
+    requestAnimationFrame(() => {
+        try {
+            field.scrollIntoView({ block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+        } catch (_err) {}
+    });
+});
+
+// Initialize screen based on URL on load (supports /, /about, /systems, /#projects, /contact, /ai-lab, ?p=...)
 const initDeckRoute = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const redirectedPath = urlParams.get('p');
     if (redirectedPath) {
-        const cleanPath = '/' + redirectedPath.replace(/^[/]+/, '');
-        try {
-            window.history.replaceState(null, '', cleanPath);
-        } catch (err) {}
-        switchScreen(cleanPath, false);
+        const idx = getScreenIndex(redirectedPath);
+        switchScreen(idx, true, { announce: false, force: true, replaceHistory: true });
         return;
     }
-    const target = window.location.hash || window.location.pathname;
-    switchScreen(target, false);
+
+    const initialHash = window.location.hash || '';
+    if (initialHash.startsWith('#preview=')) {
+        switchScreen('projects', false, { announce: false, force: true });
+        return;
+    }
+
+    const idx = getScreenIndex(initialHash || window.location.pathname);
+    switchScreen(idx, true, { announce: false, force: true, replaceHistory: true });
 };
 
 // Real-Time Dynamic Project Counter
@@ -842,11 +1155,11 @@ function initAiLabEngine() {
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><code class="cyan-text">${sample.id}</code></td>
-                <td>${sample.title}</td>
-                <td>${sample.discipline}</td>
-                <td><span class="rev-pill">${sample.status.split('//')[0].trim()}</span></td>
-                <td><span class="status-chip ${statusClass}">${sample.status.split('//')[1] || sample.status}</span></td>
+                <td><code class="cyan-text">${escapeHtml(sample.id)}</code></td>
+                <td>${escapeHtml(sample.title)}</td>
+                <td>${escapeHtml(sample.discipline)}</td>
+                <td><span class="rev-pill">${escapeHtml(sample.status.split('//')[0].trim())}</span></td>
+                <td><span class="status-chip ${statusClass}">${escapeHtml(sample.status.split('//')[1] || sample.status)}</span></td>
                 <td>Just Now</td>
                 <td><span class="author-tag">Shanthapriya (AI Controller)</span></td>
             `;
@@ -945,12 +1258,12 @@ function initAiLabEngine() {
         records.forEach(rec => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><code class="cyan-text">${rec.id}</code></td>
-                <td><strong>${rec.entity}</strong></td>
-                <td><span style="font-family:var(--font-mono); color:#8DBFD8;">${rec.phone}</span></td>
-                <td>${rec.date}</td>
-                <td><code style="font-size:0.75rem;">${rec.vat}</code></td>
-                <td><span class="status-chip status-approved">${rec.status}</span></td>
+                <td><code class="cyan-text">${escapeHtml(rec.id)}</code></td>
+                <td><strong>${escapeHtml(rec.entity)}</strong></td>
+                <td><span style="font-family:var(--font-mono); color:#8DBFD8;">${escapeHtml(rec.phone)}</span></td>
+                <td>${escapeHtml(rec.date)}</td>
+                <td><code style="font-size:0.75rem;">${escapeHtml(rec.vat)}</code></td>
+                <td><span class="status-chip status-approved">${escapeHtml(rec.status)}</span></td>
             `;
             pipeTbody.appendChild(tr);
         });
@@ -1004,9 +1317,27 @@ function initAiLabEngine() {
         if (!swarmConsole) return;
         const now = new Date();
         const timeStr = `[${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}]`;
+        const safeColor = /^(?:#[0-9a-f]{3,8}|var\(--rt-[a-z0-9-]+\))$/i.test(String(color || '').trim())
+            ? String(color).trim()
+            : 'var(--rt-cyan-bright)';
+
         const div = document.createElement('div');
         div.className = 'term-line';
-        div.innerHTML = `<span class="term-time">${timeStr}</span> <span class="term-agent" style="color:${color};">[${escapeHtml(agent)}]</span> ${escapeHtml(message)}`;
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'term-time';
+        timeSpan.textContent = timeStr;
+
+        const agentSpan = document.createElement('span');
+        agentSpan.className = 'term-agent';
+        agentSpan.style.color = safeColor;
+        agentSpan.textContent = `[${String(agent ?? '')}]`;
+
+        div.appendChild(timeSpan);
+        div.appendChild(document.createTextNode(' '));
+        div.appendChild(agentSpan);
+        div.appendChild(document.createTextNode(` ${String(message ?? '')}`));
+
         swarmConsole.appendChild(div);
         swarmConsole.scrollTop = swarmConsole.scrollHeight;
     }
@@ -1172,14 +1503,15 @@ function initAiLabEngine() {
         items.forEach((item, idx) => {
             const card = document.createElement('div');
             card.className = `radar-card ${idx === 0 ? 'active' : ''}`;
-            card.setAttribute('data-tech-id', item.id);
+            card.setAttribute('data-tech-id', String(item.id || ''));
+            const safeIcon = /^bx[a-z0-9-]*$/i.test(String(item.icon || '')) ? item.icon : 'bx-layer';
             card.innerHTML = `
                 <div class="rcard-top">
-                    <i class='bx ${item.icon} rcard-icon'></i>
-                    <span class="rcard-cat">${item.catLabel}</span>
+                    <i class='bx ${safeIcon} rcard-icon'></i>
+                    <span class="rcard-cat">${escapeHtml(item.catLabel)}</span>
                 </div>
-                <h4 class="rcard-title">${item.name}</h4>
-                <p class="rcard-sub">${item.short}</p>
+                <h4 class="rcard-title">${escapeHtml(item.name)}</h4>
+                <p class="rcard-sub">${escapeHtml(item.short)}</p>
             `;
 
             card.addEventListener('click', () => {
@@ -1202,16 +1534,17 @@ function initAiLabEngine() {
         const catEl = document.getElementById('radar-detail-cat');
         const bodyEl = document.getElementById('radar-detail-body');
         const statsEl = document.getElementById('radar-detail-stats');
+        const safeIcon = /^bx[a-z0-9-]*$/i.test(String(item.icon || '')) ? item.icon : 'bx-layer';
 
-        if (iconEl) iconEl.className = `bx ${item.icon}`;
+        if (iconEl) iconEl.className = `bx ${safeIcon}`;
         if (nameEl) nameEl.textContent = item.name;
         if (catEl) catEl.textContent = item.catLabel;
         if (bodyEl) bodyEl.textContent = item.desc;
         if (statsEl) {
             statsEl.innerHTML = `
-                <div class="rstat"><strong>METRIC:</strong> ${item.stats.speed}</div>
-                <div class="rstat"><strong>APPLICATION:</strong> ${item.stats.usage}</div>
-                <div class="rstat"><strong>BUSINESS IMPACT:</strong> ${item.stats.roi}</div>
+                <div class="rstat"><strong>METRIC:</strong> ${escapeHtml(item.stats?.speed)}</div>
+                <div class="rstat"><strong>APPLICATION:</strong> ${escapeHtml(item.stats?.usage)}</div>
+                <div class="rstat"><strong>BUSINESS IMPACT:</strong> ${escapeHtml(item.stats?.roi)}</div>
             `;
         }
     }
@@ -1274,12 +1607,19 @@ function initAiLabEngine() {
 
     let userProfile = { ...DEFAULT_PROFILE };
 
-    // Load persisted real profile from browser localStorage
+    // Load persisted real profile from browser localStorage (strict key allowlist)
     try {
         const saved = localStorage.getItem('ravana_user_real_cv');
         if (saved) {
             const parsed = JSON.parse(saved);
-            userProfile = { ...userProfile, ...parsed };
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                const allowedKeys = ['name', 'title', 'phone', 'email', 'location', 'profile', 'experience', 'education', 'skills', 'rawCv'];
+                for (const k of allowedKeys) {
+                    if (Object.hasOwn(parsed, k) && parsed[k] !== undefined && parsed[k] !== null) {
+                        userProfile[k] = parsed[k];
+                    }
+                }
+            }
         }
     } catch (e) {
         console.warn('Real CV profile load deferred:', e);

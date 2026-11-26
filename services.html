@@ -3,8 +3,8 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Services & Solutions // RAVANA TECH — High-Performance Web Engineering</title>
-        <meta name="description" content="Explore complete web solutions by Ravana Tech. Business Websites, E-Commerce Stores, High-Speed Landing Pages, Custom Web Applications, and Website Redesigns. Built fast with sub-second speeds.">
+        <title>Web Engineering Services &amp; E-Commerce // RAVANA TECH</title>
+        <meta name="description" content="Explore web engineering solutions by Ravana Tech: business websites, e-commerce online stores, fast landing pages, booking web apps, speed fixes, and hosting.">
         
         <!-- ===== SEO & SEARCH ENGINE DIRECTIVES ===== -->
         <meta name="google-site-verification" content="NN6_WYk9_MfobT-JhezVgPTR5TF3Vhg_oTQjYGqioS0">
@@ -19,11 +19,11 @@
         <meta name="color-scheme" content="dark">
 
         <!-- ===== FAVICONS & PWA MANIFEST ===== -->
-        <link rel="icon" type="image/x-icon" href="/favicon.ico">
-        <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=rt3">
+        <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png?v=rt3">
         <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-        <link rel="shortcut icon" href="/favicon.ico">
-        <link rel="apple-touch-icon" href="/favicon.png">
+        <link rel="shortcut icon" href="/favicon.ico?v=rt3">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=rt3">
         <link rel="manifest" href="/manifest.webmanifest">
 
         <!-- ===== OPEN GRAPH ===== -->
@@ -31,9 +31,11 @@
         <meta property="og:url" content="https://ravanatek.web.app/services">
         <meta property="og:site_name" content="RAVANA TECH">
         <meta property="og:locale" content="en_US">
-        <meta property="og:title" content="Web Solutions & Services // RAVANA TECH">
-        <meta property="og:description" content="Complete Web Engineering Solutions: Business Websites, E-Commerce, Landing Pages, Custom Web Portals & Speed Optimization.">
-        <meta property="og:image" content="https://ravanatek.web.app/Ravana.webp">
+        <meta property="og:title" content="Web Solutions &amp; Services // RAVANA TECH">
+        <meta property="og:description" content="Complete Web Engineering Solutions: Business Websites, E-Commerce, Landing Pages, Custom Web Portals &amp; Speed Optimization.">
+        <meta property="og:image" content="https://ravanatek.web.app/assets/img/ravana_banner_1791448914226.jpg">
+        <meta property="og:image:secure_url" content="https://ravanatek.web.app/assets/img/ravana_banner_1791448914226.jpg">
+        <meta property="og:image:type" content="image/jpeg">
         <meta property="og:image:width" content="1376">
         <meta property="og:image:height" content="768">
         <meta property="og:image:alt" content="RAVANA TECH Web Development Services">
@@ -42,18 +44,18 @@
         <meta name="twitter:card" content="summary_large_image">
         <meta name="twitter:site" content="@ravanatech_official">
         <meta name="twitter:creator" content="@ravanatech_official">
-        <meta name="twitter:title" content="Web Solutions & Services // RAVANA TECH">
+        <meta name="twitter:title" content="Web Solutions &amp; Services // RAVANA TECH">
         <meta name="twitter:description" content="Explore complete web solutions built for speed, conversion, and effortless client management.">
-        <meta name="twitter:image" content="https://ravanatek.web.app/Ravana.webp">
+        <meta name="twitter:image" content="https://ravanatek.web.app/assets/img/ravana_banner_1791448914226.jpg">
+        <meta name="twitter:image:alt" content="RAVANA TECH Web Development Services">
 
         <!-- ===== RESOURCE PRECONNECT & PERFORMANCE ===== -->
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
         <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-        <link rel="preload" href="styles.css?v=2.3.0" as="style">
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-        <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap"></noscript>
+        <link rel="preload" href="styles.css?v=2.5.0" as="style">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
         <!-- ===== SCHEMA.ORG STRUCTURED DATA (JSON-LD) ===== -->
         <script type="application/ld+json">
@@ -64,6 +66,7 @@
               "@type": "Service",
               "@id": "https://ravanatek.web.app/services#catalog",
               "name": "Web Engineering & Digital Solutions // RAVANA TECH",
+              "url": "https://ravanatek.web.app/services",
               "provider": {
                 "@type": "Organization",
                 "name": "RAVANA TECH",
@@ -98,7 +101,7 @@
         <link href='https://cdn.jsdelivr.net/npm/boxicons@2.0.5/css/boxicons.min.css' rel='stylesheet'>
 
         <!-- ===== STYLESHEET ===== -->
-        <link rel="stylesheet" href="styles.css?v=2.3.0">
+        <link rel="stylesheet" href="styles.css?v=2.5.0">
         <style>
             html, body {
                 width: 100%;
@@ -130,8 +133,10 @@
                 inset: 0;
                 width: 100%;
                 height: 100%;
-                padding: 1rem 0;
-                overflow: hidden !important;
+                padding: clamp(0.75rem, 2vh, 1.5rem) 0 clamp(2.5rem, 5vh, 3.25rem);
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+                -webkit-overflow-scrolling: touch;
                 box-sizing: border-box;
                 display: none !important;
                 opacity: 0 !important;
@@ -143,13 +148,18 @@
             .deck-screen.deck-screen-active {
                 display: flex !important;
                 flex-direction: column;
-                justify-content: center;
+                justify-content: safe center;
                 align-items: center;
                 opacity: 1 !important;
                 visibility: visible !important;
                 pointer-events: auto !important;
                 transform: scale(1) translateY(0) !important;
                 z-index: 10;
+            }
+            @media screen and (max-width: 859px) {
+                .deck-screen.deck-screen-active {
+                    justify-content: flex-start;
+                }
             }
             /* Command Deck Navigation Dots Bar */
             .services-deck-nav-bar {
@@ -475,85 +485,6 @@
             </div>
         </footer>
 
-        <script>
-            // Mobile menu toggle
-            const toggle = document.getElementById('nav-toggle');
-            const menu = document.getElementById('nav-menu');
-            if (toggle && menu) {
-                toggle.addEventListener('click', () => {
-                    const isOpen = menu.classList.toggle('show');
-                    toggle.setAttribute('aria-expanded', String(isOpen));
-                });
-            }
-
-            // Strict Command Deck Architecture (One screen visible at a time, instant wheel switching)
-            let currentServicesIndex = 0;
-            const screens = document.querySelectorAll('.deck-screen');
-            const dots = document.querySelectorAll('.services-dot-btn');
-            let isTransitioning = false;
-
-            function switchServiceScreen(index) {
-                if (index < 0 || index >= screens.length || isTransitioning) return;
-                isTransitioning = true;
-                currentServicesIndex = index;
-
-                screens.forEach((scr, i) => {
-                    if (i === currentServicesIndex) {
-                        scr.classList.add('deck-screen-active');
-                    } else {
-                        scr.classList.remove('deck-screen-active');
-                    }
-                });
-
-                dots.forEach((dot, i) => {
-                    if (i === currentServicesIndex) {
-                        dot.classList.add('active');
-                    } else {
-                        dot.classList.remove('active');
-                    }
-                });
-
-                setTimeout(() => { isTransitioning = false; }, 350);
-            }
-
-            dots.forEach((dot, idx) => {
-                dot.addEventListener('click', () => {
-                    switchServiceScreen(idx);
-                });
-            });
-
-            // Strict Mouse Wheel Command Deck Switching
-            let accumulatedDelta = 0;
-            let resetTimer = null;
-
-            window.addEventListener('wheel', (e) => {
-                accumulatedDelta += e.deltaY;
-                clearTimeout(resetTimer);
-                resetTimer = setTimeout(() => { accumulatedDelta = 0; }, 180);
-
-                if (isTransitioning) return;
-
-                if (accumulatedDelta > 20 && currentServicesIndex < screens.length - 1) {
-                    accumulatedDelta = 0;
-                    switchServiceScreen(currentServicesIndex + 1);
-                } else if (accumulatedDelta < -20 && currentServicesIndex > 0) {
-                    accumulatedDelta = 0;
-                    switchServiceScreen(currentServicesIndex - 1);
-                }
-            }, { passive: true });
-
-            // Keyboard Navigation (Arrow Keys)
-            window.addEventListener('keydown', (e) => {
-                if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === 'ArrowRight') {
-                    if (currentServicesIndex < screens.length - 1) {
-                        switchServiceScreen(currentServicesIndex + 1);
-                    }
-                } else if (e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'ArrowLeft') {
-                    if (currentServicesIndex > 0) {
-                        switchServiceScreen(currentServicesIndex - 1);
-                    }
-                }
-            });
-        </script>
+        <script src="assets/js/services-deck.js?v=2.5.0" defer></script>
     </body>
 </html>

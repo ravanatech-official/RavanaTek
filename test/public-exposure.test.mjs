@@ -211,12 +211,13 @@ test('both servers initialize a missing store and preserve an existing synthetic
 
 test('public build contains only public site and demo files', async () => {
   const files = await listFiles(publicDir);
-  const forbidden = /(^|\/)(data|src|node_modules|\.git|\.aistudio)(\/|$)|(^|\/)(server\.(js|ts)|package(-lock)?\.json|\.env(?:\..*)?|firebase-applet-config\.json)$/i;
+  const forbidden = /(^|\/)(data|src|node_modules|\.git|\.aistudio|\.github)(\/|$)|(^|\/)(server\.(js|ts)|package(-lock)?\.json|\.env(?:\..*)?|firebase-applet-config\.json|firebase-blueprint\.json|security_spec\.md|walkthrough\.md|firestore\.rules|firebase\.json)$/i;
   assert.deepEqual(files.filter((file) => forbidden.test(file)), []);
   assert.equal(files.filter((file) => file.startsWith('conceptual projects/')).length, 50);
   for (const required of [
     'index.html', 'projects.html', 'services.html', 'styles.css', 'main.js',
     'manifest.webmanifest', 'ravana.webp', 'assets/js/gallery.js', 'assets/js/contact-form.js',
+    'assets/js/archive-nav.js', 'assets/js/services-deck.js',
     'assets/img/image_01_opt.webp', 'work1.jpg',
     'assets/img/ravana_tech_logo_1792581937150.jpg',
   ]) assert.ok(files.includes(required), `missing public file: ${required}`);
@@ -280,15 +281,17 @@ test('both inquiry APIs acknowledge only persisted synthetic records and preserv
   }
 });
 
-test('GET and HEAD cannot disclose private paths, including static aliases', async (t) => {
+test('GET and HEAD cannot disclose private paths, rules, blueprints, or docs', async (t) => {
   const privateRoutes = [
     '/data/leads-db.json',
     '/assets/data/leads-db.json',
     '/assets/js/data/leads-db.json',
     '/server.js', '/assets/server.js', '/assets/js/server.js',
     '/server.ts', '/package.json', '/.env', '/.git/HEAD',
-    '/firebase-init.js', '/firebase-applet-config.json', '/vite.config.ts',
-    '/src/types.ts', '/metadata.json',
+    '/firebase-init.js', '/firebase-applet-config.json', '/firebase-blueprint.json',
+    '/firestore.rules', '/firebase.json', '/DRAFT_firestore.rules',
+    '/security_spec.md', '/walkthrough.md', '/README.md',
+    '/vite.config.ts', '/src/types.ts', '/metadata.json',
     '/assets/.git/HEAD', '/assets/js/.git/HEAD',
     '/assets/js/package.json', '/assets/css/server.js', '/assets/img/data/leads-db.json',
     '/assets/js/../../package.json', '/assets%2fjs%2f..%2f..%2fpackage.json',
@@ -332,12 +335,14 @@ test('main pages, required assets, and representative demos load', async (t) => 
     ['/projects.html', /Conceptual Blueprints Archive/i],
     ['/archive', /Conceptual Blueprints Archive/i],
     ['/gallery', /Conceptual Blueprints Archive/i],
-    ['/services.html', /Web Solutions & Services/i],
-    ['/all-services', /Web Solutions & Services/i],
+    ['/services.html', /Web Engineering Services|Web Solutions/i],
+    ['/all-services', /Web Engineering Services|Web Solutions/i],
     ['/styles.css', /:root/],
     ['/main.js', /initDeckRoute/],
     ['/assets/js/gallery.js', /renderGallery/],
     ['/assets/js/contact-form.js', /bindContactForm/],
+    ['/assets/js/archive-nav.js', /archive/i],
+    ['/assets/js/services-deck.js', /services/i],
     ['/assets/img/image_01_opt.webp', null],
     ['/assets/img/ravana_tech_logo_1792581937150.jpg', null],
     ['/manifest.webmanifest', /icons/],
@@ -362,6 +367,119 @@ test('main pages, required assets, and representative demos load', async (t) => 
   }
 });
 
+test('security headers, strict CSP, prototype-pollution guards, and API input checks hold across both servers', async (t) => {
+  async function rawRequest(server, method, route, headers, rawBody) {
+    const target = new URL(server.baseUrl);
+    return new Promise((resolve, reject) => {
+      const req = http.request({
+        hostname: target.hostname,
+        port: target.port,
+        method,
+        path: route,
+        agent: false,
+        headers: rawBody === undefined ? headers : {
+          ...headers,
+          'Content-Length': Buffer.byteLength(rawBody),
+        },
+      }, (res) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => resolve({
+          status: res.statusCode,
+          headers: res.headers,
+          text: Buffer.concat(chunks).toString('utf8'),
+        }));
+      });
+      req.once('error', reject);
+      req.end(rawBody);
+    });
+  }
+
+  for (const server of servers) {
+    await t.test(server.name, async (serverTest) => {
+      await serverTest.test('main pages enforce strict zero-unsafe-inline script-src CSP and enterprise headers', async () => {
+        const home = await request(server, 'GET', '/');
+        assert.equal(home.status, 200);
+        assert.equal(home.headers['x-content-type-options'], 'nosniff');
+        assert.equal(home.headers['x-permitted-cross-domain-policies'], 'none');
+        assert.equal(home.headers['x-dns-prefetch-control'], 'off');
+        assert.equal(home.headers['origin-agent-cluster'], '?1');
+        assert.equal(home.headers['x-powered-by'], undefined);
+        const csp = String(home.headers['content-security-policy'] || '');
+        const scriptSrcMatch = csp.match(/script-src\s+([^;]+)/i);
+        assert.ok(scriptSrcMatch, 'CSP must define script-src');
+        assert.doesNotMatch(scriptSrcMatch[1], /'unsafe-inline'|'unsafe-eval'/i);
+        assert.match(csp, /object-src\s+'none'/i);
+      });
+
+      await serverTest.test('API responses prevent caching and /api/health returns security metadata', async () => {
+        const health = await request(server, 'GET', '/api/health');
+        assert.equal(health.status, 200);
+        assert.match(String(health.headers['cache-control'] || ''), /no-store/i);
+        const body = JSON.parse(health.text);
+        assert.equal(body.security.strictScriptCsp, true);
+      });
+
+      await serverTest.test('/api/document-sim blocks prototype property lookup and invalid sampleId', async () => {
+        for (const badId of ['constructor', '__proto__', 'toString', 'valueOf', 'unknown_doc']) {
+          const res = await request(server, 'POST', '/api/document-sim', { sampleId: badId });
+          assert.equal(res.status, 400, `expected 400 for sampleId=${badId}, got ${res.status}`);
+        }
+        const ok = await request(server, 'POST', '/api/document-sim', { sampleId: 'hvac' });
+        assert.equal(ok.status, 200);
+        assert.equal(JSON.parse(ok.text).document.docId, 'TS-MEP-HVAC-0881');
+      });
+
+      await serverTest.test('POST APIs reject prototype pollution keys, malformed JSON, wrong Content-Type, and untrusted Origin', async () => {
+        const protoRes = await rawRequest(
+          server,
+          'POST',
+          '/api/inquiry',
+          { 'Content-Type': 'application/json' },
+          '{"__proto__":{"polluted":true},"name":"A","email":"a@b.com","message":"Hi"}'
+        );
+        assert.equal(protoRes.status, 400);
+
+        const ctorRes = await request(server, 'POST', '/api/inquiry', {
+          constructor: { prototype: { polluted: true } },
+          name: 'A',
+          email: 'a@b.com',
+          message: 'Hi',
+        });
+        assert.equal(ctorRes.status, 400);
+
+        const badJson = await rawRequest(
+          server,
+          'POST',
+          '/api/inquiry',
+          { 'Content-Type': 'application/json' },
+          '{invalid-json'
+        );
+        assert.equal(badJson.status, 400);
+        assert.equal(JSON.parse(badJson.text).success, false);
+
+        const badType = await rawRequest(
+          server,
+          'POST',
+          '/api/inquiry',
+          { 'Content-Type': 'text/plain' },
+          'hello'
+        );
+        assert.equal(badType.status, 415);
+
+        const evilOrigin = await rawRequest(
+          server,
+          'POST',
+          '/api/inquiry',
+          { 'Content-Type': 'application/json', Origin: 'https://evil-attacker.invalid' },
+          JSON.stringify({ name: 'A', email: 'a@b.com', message: 'Hi' })
+        );
+        assert.equal(evilOrigin.status, 403);
+      });
+    });
+  }
+});
+
 test('unknown paths return HTTP 404 instead of an HTML fallback', async (t) => {
   for (const server of servers) {
     await t.test(server.name, async () => {
@@ -377,4 +495,11 @@ test('Firebase Hosting is configured to publish only the allowlisted build witho
   const firebase = JSON.parse(await readFile(path.join(root, 'firebase.json'), 'utf8'));
   assert.equal(firebase.hosting.public, 'public-build');
   assert.ok(firebase.hosting.rewrites.every((rewrite) => rewrite.source !== '**' && rewrite.source !== '/**'));
+  const globalHeaders = firebase.hosting.headers.find((rule) => rule.source === '**');
+  assert.ok(globalHeaders);
+  const cspHeader = globalHeaders.headers.find((h) => h.key === 'Content-Security-Policy');
+  assert.ok(cspHeader);
+  const scriptSrcMatch = cspHeader.value.match(/script-src\s+([^;]+)/i);
+  assert.ok(scriptSrcMatch);
+  assert.doesNotMatch(scriptSrcMatch[1], /'unsafe-inline'|'unsafe-eval'/i);
 });
