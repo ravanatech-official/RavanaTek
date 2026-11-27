@@ -6553,7 +6553,7 @@ li:has(.nav__link-lab) {
 
   main#main-content:nth-of-type(1) > section#home:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) {
     margin-bottom: 20px;
-    margin-top: 50px;
+    margin-top: 20px;
   }
 
   main#main-content:nth-of-type(1) > section#home:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > p:nth-of-type(1) {
@@ -6562,16 +6562,16 @@ li:has(.nav__link-lab) {
     line-height: 35px;
     font-weight: normal;
     margin-left: 0px;
-    margin-top: 50px;
+    margin-top: 20px;
     margin-bottom: 20px;
   }
 
   main#main-content:nth-of-type(1) > section#home:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) {
     margin-bottom: 0px;
-    margin-top: 50px;
+    margin-top: 20px;
   }
 
   main#main-content:nth-of-type(1) > section#home:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) {
-    margin-top: 50px;
+    margin-top: 20px;
   }
 }
